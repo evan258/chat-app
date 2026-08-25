@@ -1,0 +1,243 @@
+// This is your Prisma schema file,
+// learn more about it: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ConversationType {
+  Direct
+  Group
+}
+
+enum FriendshipStatus {
+  Pending
+  Accepted
+}
+
+enum ReactionType {
+  Love
+  Haha
+  Sad
+  Wow
+  Angry
+}
+
+enum NotificationType {
+  FriendRequestReceived
+  FriendRequestAccepted
+  FriendRequestRejected
+  GroupAdded
+  GroupRemoved
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  fileId Int? @unique
+
+  lastReadNotificationId Int? @unique
+
+  messages Message[]
+  files    File[]    @relation("FilesOwner")
+  avatar   File?     @relation("UserAvatar", fields: [fileId], references: [id])
+
+  conversations       ConversationMember[]
+  friendshipInitiated Friendship[]         @relation("FriendshipInitiated")
+  friendshipReceived  Friendship[]         @relation("FriendshipReceived")
+  reactions           MessageReaction[]
+
+  initiatedNotifications Notification[] @relation("NotificationInitiator")
+  receivedNotifications  Notification[] @relation("NotificationRecipient")
+  lastReadNotification   Notification?  @relation("LastReadNotification", fields: [lastReadNotificationId], references: [id])
+
+  sessions Session[]
+  accounts Account[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ipAddress String?
+  userAgent String?
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id String @id
+
+  accountId  String
+  providerId String
+  issuer     String
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessToken  String?
+  refreshToken String?
+  idToken      String?
+
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+
+  scope    String?
+  password String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([issuer, accountId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Jwks {
+  id String @id
+
+  publicKey  String
+  privateKey String
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  alg String
+  crv String?
+}
+
+model Conversation {
+  id            Int              @id @default(autoincrement())
+  type          ConversationType
+  lastMessageId Int?             @unique
+
+  name   String?
+  fileId Int?    @unique
+
+  avatar File? @relation(fields: [fileId], references: [id])
+
+  messages    Message[] @relation("ConversationMessages")
+  lastMessage Message?  @relation("ConversationLastMessage", fields: [lastMessageId], references: [id])
+
+  members       ConversationMember[]
+  notifications Notification[]
+}
+
+model ConversationMember {
+  id             Int    @id @default(autoincrement())
+  conversationId Int
+  userId         String
+
+  lastReadMessageId Int?
+  deletedMessages   Message[] @relation("DeletedMessages")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  lastMessage  Message?     @relation("LastReadMessage", fields: [lastReadMessageId], references: [id])
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             Int    @id @default(autoincrement())
+  senderId       String
+  conversationId Int
+
+  text      String?
+  createdAt DateTime @default(now())
+
+  sender             User          @relation(fields: [senderId], references: [id])
+  conversation       Conversation  @relation("ConversationMessages", fields: [conversationId], references: [id])
+  LastOfConversation Conversation? @relation("ConversationLastMessage")
+
+  files     File[]
+  readBy    ConversationMember[] @relation("LastReadMessage")
+  deletedBy ConversationMember[] @relation("DeletedMessages")
+  reactions MessageReaction[]
+}
+
+model File {
+  id        Int    @id @default(autoincrement())
+  ownerId   String
+  messageId Int?
+
+  storageKey String
+  fileName   String
+  fileType   String
+  size       Int
+  uploaded   Boolean @default(false)
+
+  owner   User          @relation("FilesOwner", fields: [ownerId], references: [id])
+  message Message?      @relation(fields: [messageId], references: [id])
+  group   Conversation?
+  user    User?         @relation("UserAvatar")
+}
+
+model Friendship {
+  id       Int    @id @default(autoincrement())
+  userId   String
+  friendId String
+
+  status    FriendshipStatus @default(Pending)
+  createdAt DateTime         @default(now())
+
+  user   User @relation("FriendshipInitiated", fields: [userId], references: [id])
+  friend User @relation("FriendshipReceived", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+}
+
+model MessageReaction {
+  id        Int          @id @default(autoincrement())
+  messageId Int
+  userId    String
+  reaction  ReactionType
+  createdAt DateTime     @default(now())
+
+  message Message @relation(fields: [messageId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+}
+
+model Notification {
+  id             Int              @id @default(autoincrement())
+  initiatorId    String
+  recipientId    String
+  type           NotificationType
+  conversationId Int?
+
+  initiator User @relation("NotificationInitiator", fields: [initiatorId], references: [id])
+  recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id])
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  lastReadBy   User?         @relation("LastReadNotification")
+}
