@@ -3,8 +3,12 @@ import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import cors from "cors";
 import helmet from "helmet";
-import messageRoutes from "./routes/messageRoutes.js"
 import { authMiddleware } from "./middlewares/authMiddleware.js";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import { setupWebSocket } from "./websocket.js";
+import messageRoutes from "./routes/messageRoutes.js"
+import fileRoutes from "./routes/fileRoutes.js"
+import conversationRoutes from "./routes/conversationRoutes.js"
 
 const app = express();
 
@@ -18,15 +22,45 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/messages", authMiddleware, messageRoutes);
+app.use("/files", authMiddleware, fileRoutes);
+app.use("/conversations", authMiddleware, conversationRoutes);
 
 const server = createServer(app);
 
 const wss = new WebSocketServer({noServer: true});
 
-server.on("upgrade", (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit("connection", ws, request);
-  })
+setupWebSocket(wss);
+
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
+);
+
+server.on("upgrade", async (request, socket, head) => {
+  try {
+    const reqUrl = new URL(request.url || "", `http://${request.headers.host}`)
+    const token = reqUrl.searchParams.get("token");
+
+    if (!token) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    const {payload} = await jwtVerify(token, JWKS);
+    if (!payload?.sub) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      ws.userId = payload.sub!;
+      wss.emit("connection", ws, request);
+    });
+  } catch (err) {
+    console.log(err);
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    socket.destroy();
+  }
 });
 
 const PORT = Number(process.env.PORT) || 3003;

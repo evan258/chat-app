@@ -1,12 +1,19 @@
-import { addIncomingMessage, confirmMessage, deleteRemovingMessage, removeMessage, setLastRead, setTyping, updateMessageReactions } from "@/state/messagesSlice";
+import { addIncomingMessage, confirmMessage, deleteRemovingMessage, markMessageAsFailed, markMessageAsUnsent, removeMessage, setLastRead, setTyping, updateMessageReactions } from "@/state/messagesSlice";
 import { store } from "@/state/store";
 import { toast } from "sonner";
+import { authClient } from "./auth-client";
+import { markLastActivityUnsent, newMessageInConversation } from "@/state/conversationsSlice";
 
 let socket: WebSocket | null = null;
 
-export function connectSocket () {
+export async function connectSocket () {
   if (socket) return;
-  socket = new WebSocket(process.env.API_BASE_URL!);
+
+  const { data, error } = await authClient.token();
+  if (error || !data?.token) return;
+
+  const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(data.token)}`;
+  socket = new WebSocket(wsUrl);
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -20,14 +27,19 @@ export function connectSocket () {
         break;
 
       case "message_sent_failed":
-        store.dispatch(confirmMessage({
+        store.dispatch(markMessageAsFailed({
           tempId: data.tempId,
-          message: data.message,
+          conversationId: data.conversationId,
         }))
         break;
 
       case "message_received":
         store.dispatch(addIncomingMessage(data.message))
+
+        const state = store.getState();
+        if (state.conversations.openConversationId !== data.message.conversationId) {
+          store.dispatch(newMessageInConversation(data.message.conversationId));
+        }
         break;
 
       case "remove_message_failed":
@@ -47,6 +59,36 @@ export function connectSocket () {
           conversationId: data.conversationId,
           messageId: data.messageId,
         }))
+        break;
+
+      case "message_unsent_successfully":
+        store.dispatch(deleteRemovingMessage({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+        })) 
+        store.dispatch(removeMessage({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+        }));
+        break;
+
+      case "message_unsent_failed":
+        store.dispatch(deleteRemovingMessage({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+        }))
+        toast.error("Failed to unsend message");
+        break;
+
+      case "incoming_message_unsent":
+        store.dispatch(markMessageAsUnsent({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+        }));
+        store.dispatch(markLastActivityUnsent({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+        }));
         break;
 
 
@@ -88,5 +130,13 @@ export function connectSocket () {
       default:
         break;
     }
+  }
+
+  socket.onerror = () => {
+    socket = null;
+  }
+
+  socket.onclose = () => {
+    socket = null;
   }
 }

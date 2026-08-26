@@ -1,14 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string,
-    }
-  }
-}
-
 const JWKS = createRemoteJWKSet(
   new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
 );

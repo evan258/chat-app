@@ -1,4 +1,4 @@
-import { Friendship } from "@/types/prisma";
+import { Friendship } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface FriendshipsState {

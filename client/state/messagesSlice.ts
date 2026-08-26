@@ -7,7 +7,8 @@ export interface Message {
   senderId: string,
   createdAt: null | string,
   previewUrls: string[],      
-  text?: string,
+  text?: string | null,
+  unsent: boolean,
   status: "sending" | "sent" | "failed",
   reactions: {userId: string, reaction: ReactionType}[],
 }
@@ -55,6 +56,27 @@ const messagesSlice = createSlice({
         state.messagesByConversation[message.conversationId] = [];
       }
       state.messagesByConversation[message.conversationId].push(message);
+    },
+    markMessageAsFailed: (state, action: PayloadAction<{tempId: string, conversationId: number}>) => {
+      const messages = state.messagesByConversation[action.payload.conversationId];
+      if (!messages) return;
+      const index = messages.findIndex((message) => message.id === action.payload.tempId);
+
+      if (index === -1) return;
+      state.messagesByConversation[action.payload.conversationId][index] = {...messages[index], status: "failed"};
+    },
+    markMessageAsUnsent: (state, action: PayloadAction<{messageId: string, conversationId: number}>) => {
+      const messages = state.messagesByConversation[action.payload.conversationId];
+      if (!messages) return;
+      const index = messages.findIndex((message) => message.id === action.payload.messageId);
+
+      if (index === -1) return;
+      state.messagesByConversation[action.payload.conversationId][index] = {
+        ...messages[index],
+        unsent: true,
+        text: null,
+        previewUrls: [],
+      };
     },
     prependMessages: (state, action: PayloadAction<{conversationId: number, messages: Message[]}>) => {
       const currentMessages = state.messagesByConversation[action.payload.conversationId] || [];
@@ -119,6 +141,8 @@ export const {
   addOptimisticMessage,
   confirmMessage,
   addIncomingMessage,
+  markMessageAsFailed,
+  markMessageAsUnsent,
   removeMessage,
   setTyping,
   setLastRead,

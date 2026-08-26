@@ -155,6 +155,7 @@ model ConversationMember {
   id             Int    @id @default(autoincrement())
   conversationId Int
   userId         String
+  unreadCount    Int    @default(0)
 
   lastReadMessageId Int?
   deletedMessages   Message[] @relation("DeletedMessages")
@@ -172,6 +173,7 @@ model Message {
   conversationId Int
 
   text      String?
+  unsent    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   sender             User          @relation(fields: [senderId], references: [id])

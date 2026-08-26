@@ -100,6 +100,7 @@ CREATE TABLE "ConversationMember" (
     "id" SERIAL NOT NULL,
     "conversationId" INTEGER NOT NULL,
     "userId" TEXT NOT NULL,
+    "unreadCount" INTEGER NOT NULL DEFAULT 0,
     "lastReadMessageId" INTEGER,
 
     CONSTRAINT "ConversationMember_pkey" PRIMARY KEY ("id")
@@ -111,6 +112,7 @@ CREATE TABLE "Message" (
     "senderId" TEXT NOT NULL,
     "conversationId" INTEGER NOT NULL,
     "text" TEXT,
+    "unsent" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Message_pkey" PRIMARY KEY ("id")

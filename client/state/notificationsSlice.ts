@@ -1,4 +1,4 @@
-import { Conversation, Notification, User } from "@/types/prisma";
+import { Conversation, Notification, User } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface NotificationExtended extends Notification {
