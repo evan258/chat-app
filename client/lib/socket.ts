@@ -2,7 +2,7 @@ import { addIncomingMessage, confirmMessage, deleteRemovingMessage, markMessageA
 import { store } from "@/state/store";
 import { toast } from "sonner";
 import { authClient } from "./auth-client";
-import { markLastActivityUnsent, newMessageInConversation } from "@/state/conversationsSlice";
+import { markLastActivityUnsent, newMessageInConversation, updateLastActivity } from "@/state/conversationsSlice";
 
 let socket: WebSocket | null = null;
 
@@ -23,7 +23,19 @@ export async function connectSocket () {
         store.dispatch(confirmMessage({
           tempId: data.tempId,
           message: data.message,
-        }))
+        }));
+
+        store.dispatch(updateLastActivity({
+          conversationId: data.message.conversationId,
+          lastActivity: {
+            type: "message",
+            id: data.message.id,
+            senderId: data.message.senderId,
+            text: data.message.text,
+            filesLen: data.message.previewUrls.length,
+            unsent: data.message.unsent,
+          },
+        }));
         break;
 
       case "message_sent_failed":
@@ -34,11 +46,28 @@ export async function connectSocket () {
         break;
 
       case "message_received":
-        store.dispatch(addIncomingMessage(data.message))
+        store.dispatch(addIncomingMessage(data.message));
+
+        store.dispatch(updateLastActivity({
+          conversationId: data.message.conversationId,
+          lastActivity: {
+            type: "message",
+            id: data.message.id,
+            senderId: data.message.senderId,
+            text: data.message.text,
+            filesLen: data.message.previewUrls.length,
+            unsent: data.message.unsent,
+          },
+        }));
 
         const state = store.getState();
         if (state.conversations.openConversationId !== data.message.conversationId) {
           store.dispatch(newMessageInConversation(data.message.conversationId));
+        } else {
+          socket?.send(JSON.stringify({
+            type: "conversation_read",
+            conversationId: data.message.conversationId,
+          }));
         }
         break;
 
@@ -70,6 +99,10 @@ export async function connectSocket () {
           conversationId: data.conversationId,
           messageId: data.messageId,
         }));
+        store.dispatch(markLastActivityUnsent({
+          conversationId: data.conversationId,
+          messageId: data.messageId,
+        }));
         break;
 
       case "message_unsent_failed":
@@ -98,8 +131,32 @@ export async function connectSocket () {
           messageId: data.messageId,
           userId: data.userId,
           reactionType: data.reaction,
-        }))
-      break;
+        }));
+
+        store.dispatch(updateLastActivity({
+          conversationId: data.conversationId,
+          lastActivity: {
+            type: "reaction",
+            messageId: data.messageId,
+            senderId: data.userId,
+            reaction: data.reaction,
+            reactionAction: data.action,
+          },
+        }));
+        break;
+
+      case "message_reaction_update_successfully":
+        store.dispatch(updateLastActivity({
+          conversationId: data.conversationId,
+          lastActivity: {
+            type: "reaction",
+            messageId: data.messageId,
+            senderId: data.userId,
+            reaction: data.reaction,
+            reactionAction: data.action,
+          },
+        }));
+        break;
 
       case "message_reaction_update_failed":
         store.dispatch(updateMessageReactions({
@@ -118,7 +175,7 @@ export async function connectSocket () {
         }))
       break;
 
-      case "conversation_read":
+      case "incoming_conversation_read":
         store.dispatch(setLastRead({
           conversationId: data.conversationId,
           userId: data.userId,

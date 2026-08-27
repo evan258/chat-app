@@ -55,28 +55,42 @@ export async function handleSendMessage (ws: WebSocket, userId: string, data: Me
 
     const previewUrls = await getPreviewUrls(orderedFiles);
     
-    const message = await prisma.message.create({
-      data: {
-        conversationId: data.conversationId,
-        senderId: userId,
-        text: data.text?.trim() || null,
-        files: {
-          connect: files.map(({id}) => ({id})),
-        },
-      },
-      include: {
-        reactions: {
-          select: {
-            userId: true,
-            reaction: true,
+    const message = await prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: {
+          conversationId: data.conversationId,
+          senderId: userId,
+          text: data.text?.trim() || null,
+          files: {
+            connect: files.map(({ id }) => ({ id })),
           },
         },
-      },
+        include: {
+          reactions: {
+            select: {
+              userId: true,
+              reaction: true,
+            },
+          },
+        },
+      });
+
+      await tx.conversation.update({
+        where: {
+          id: data.conversationId,
+        },
+        data: {
+          lastMessageId: message.id,
+        },
+      });
+
+      return message;
     });
 
     const messageForClient = {
       id: message.id,
       conversationId: message.conversationId,
+      senderId: message.senderId,
       text: message.text,
       unsent: false,
       status: "sent",

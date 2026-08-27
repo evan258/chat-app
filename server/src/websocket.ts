@@ -2,6 +2,9 @@ import { WebSocket, WebSocketServer } from "ws";
 import { handleSendMessage } from "./handlers/handleSendMessage.js";
 import { handleRemoveMessage } from "./handlers/handleRemoveMessage.js";
 import { handleUnsendMessage } from "./handlers/handleUnsendMessage.js";
+import { handleReactionUpdate } from "./handlers/handleReactionUpdate.js";
+import { handleTyping } from "./handlers/handleTyping.js";
+import { handleConversationRead } from "./handlers/handleConversationRead.js";
 
 export const clients = new Map<string, WebSocket>();
 
@@ -23,6 +26,18 @@ export function setupWebSocket (wss: WebSocketServer) {
 
         case "unsend_message":
           await handleUnsendMessage(ws, userId, message);
+          break;
+
+        case "reaction_update":
+          await handleReactionUpdate(ws, userId, message);
+          break;
+
+        case "typing":
+          await handleTyping(userId, message);
+          break;
+
+        case "conversation_read":
+          await handleConversationRead(userId, message);
           break;
 
         default:

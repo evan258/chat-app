@@ -1,6 +1,8 @@
 import { ConversationType, ReactionType } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 
+export type ReactionAction = "added" | "removed" | "changed";
+
 interface LastActivityMessage {
   type: "message",
   id: number,
@@ -15,6 +17,7 @@ interface LastActivityReaction {
   messageId: number,
   senderId: string,
   reaction: ReactionType,
+  reactionAction: ReactionAction,
 }
 
 type LastActivity = LastActivityMessage | LastActivityReaction;
@@ -45,6 +48,9 @@ const conversationsSlice = createSlice({
   reducers: {
     setConversations: (state, action: PayloadAction<Conversation[]>) => {
       state.conversations = action.payload;
+    },
+    setOpenConversationId: (state, action: PayloadAction<number | null>) => {
+      state.openConversationId = action.payload;
     },
     newMessageInConversation: (state, action: PayloadAction<{conversationId: number}>) => {
       const conversation = state.conversations.find((conv) => conv.id === action.payload.conversationId);
@@ -90,6 +96,7 @@ const conversationsSlice = createSlice({
 
 export const {
   setConversations,
+  setOpenConversationId,
   newMessageInConversation,
   updateConversation,
   addConversation,

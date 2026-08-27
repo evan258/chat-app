@@ -96,9 +96,35 @@ export async function getOlderMessages (req: Request, res: Response) {
       orderBy: {
         id: "asc",
       },
+      include: {
+        reactions: {
+          select: {
+            userId: true,
+            reaction: true,
+          },
+        },
+        files: true,
+      },
     });
 
-    res.json(messages);
+    const result = await Promise.all(
+      messages.map(async (message) => {
+        const previewUrls = await getPreviewUrls(message.files);
+        return {
+          id: message.id,
+          conversationId: message.conversationId,
+          senderId: message.senderId,
+          createdAt: message.createdAt.toISOString(),
+          previewUrls,
+          text: message.text,
+          unsent: message.unsent,
+          status: "sent",
+          reactions: message.reactions,
+        };
+      })
+    );
+    
+    res.json(result);
   } catch (err) {
     res.status(500).json({message: "Failed to retreive messages"});
   }
