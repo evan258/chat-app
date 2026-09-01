@@ -2,7 +2,8 @@ import { addIncomingMessage, confirmMessage, deleteRemovingMessage, markMessageA
 import { store } from "@/state/store";
 import { toast } from "sonner";
 import { authClient } from "./auth-client";
-import { markLastActivityUnsent, newMessageInConversation, updateLastActivity } from "@/state/conversationsSlice";
+import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity } from "@/state/conversationsSlice";
+import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
 
 let socket: WebSocket | null = null;
 
@@ -35,6 +36,11 @@ export async function connectSocket () {
             filesLen: data.message.previewUrls.length,
             unsent: data.message.unsent,
           },
+        }));
+
+        socket?.send(JSON.stringify({
+          type: "conversation_read",
+          conversationId: data.message.conversationId,
         }));
         break;
 
@@ -183,7 +189,59 @@ export async function connectSocket () {
         }))
         break;
 
-      
+      case "incoming_conversation_added":
+        store.dispatch(addConversation(data.conversation));
+        break;
+
+      case "incoming_conversation_update":
+        store.dispatch(updateConversation(data.conversation));
+        break;
+
+      case "incoming_member_removal":
+        store.dispatch(removeMemberFromConversation({
+          conversationId: data.conversationId,
+          memberId: data.memberId,
+        }));
+        break;
+
+      case "removed_from_conversation":
+        store.dispatch(removeConversation({
+          conversationId: data.conversationId,
+        }));
+        break;
+
+      case "incoming_user_unfriend":
+        store.dispatch(removeConversation({
+          conversationId: data.conversationId,
+        }));
+
+        store.dispatch(removeFriendship({
+          userId: data.userId,
+          friendId: data.friendId,
+        }));
+        break;
+
+      case "incoming_friend_request":
+        store.dispatch(addFriendship(data.friendShip));
+        break;
+
+      case "friend_request_accepted":
+        store.dispatch(updateFriendship({
+          userId: data.userId,
+          friendId: data.friendId,
+          status: "Accepted",
+        }));
+
+        store.dispatch(addConversation(data.conversation));
+        break;
+
+      case "friend_request_rejected":
+        store.dispatch(removeFriendship({
+          userId: data.userId,
+          friendId: data.friendId,
+        }));
+        break;
+
       default:
         break;
     }

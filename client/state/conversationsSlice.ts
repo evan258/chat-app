@@ -57,6 +57,17 @@ const conversationsSlice = createSlice({
       if (!conversation) return;
       conversation.unreadCount = (conversation.unreadCount || 0) + 1;
     },
+    removeConversation: (state, action: PayloadAction<{conversationId: number}>) => {
+      state.conversations = state.conversations.filter((conversation) => conversation.id !== action.payload.conversationId);
+      if (state.openConversationId === action.payload.conversationId) {
+        state.openConversationId = null;
+      }
+    },
+    removeMemberFromConversation: (state, action: PayloadAction<{conversationId: number, memberId: string}>) => {
+      const conversation = state.conversations.find((conversation) => conversation.id === action.payload.conversationId);
+      if (!conversation) return;
+      conversation.members = conversation.members.filter((id) => id !== action.payload.memberId);
+    },
     updateConversation: (state, action: PayloadAction<Partial<Conversation>>) => {
       const index = state.conversations.findIndex((conv) => conv.id === action.payload.id);
       if (index === -1) return;
@@ -98,6 +109,8 @@ export const {
   setConversations,
   setOpenConversationId,
   newMessageInConversation,
+  removeConversation,
+  removeMemberFromConversation,
   updateConversation,
   addConversation,
   updateSeenConversation,

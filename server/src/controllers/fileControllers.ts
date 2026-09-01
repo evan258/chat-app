@@ -38,7 +38,7 @@ export async function prepareFileUploads (req: Request, res: Response) {
 
         return {
           fileId: fileRecord.id,
-          previewUrl: putUrl,
+          putUrl,
         };
       })
     );

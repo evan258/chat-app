@@ -1,14 +1,12 @@
-import { Friendship } from "../generated/prisma";
+import { Friendship, FriendshipStatus } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface FriendshipsState {
   friendships: Friendship[],
-  onlineFriends: Record<number, boolean>,
 }
 
 const initialState: FriendshipsState = {
   friendships: [],
-  onlineFriends: [],
 }
 
 const friendshipsSlice = createSlice({
@@ -18,32 +16,41 @@ const friendshipsSlice = createSlice({
     setFriendships: (state, action: PayloadAction<Friendship[]>) => {
       state.friendships = action.payload;
     },
-    addFriendships: (state, action: PayloadAction<Friendship>) => {
+
+    addFriendship: (state, action: PayloadAction<Friendship>) => {
       state.friendships = [action.payload, ...state.friendships];
     },
-    updateFriendship: (state, action: PayloadAction<Partial<Friendship>>) => {
-      const index = state.friendships.findIndex((f) => f.id === action.payload.id);
+
+    updateFriendship: (state,action: PayloadAction<{userId: string,friendId: string,status: FriendshipStatus}>) => {
+      const { userId, friendId, status } = action.payload;
+
+      const index = state.friendships.findIndex((friendship) =>
+        (friendship.userId === userId && friendship.friendId === friendId) ||
+        (friendship.userId === friendId && friendship.friendId === userId)
+      );
+
       if (index === -1) return;
-      state.friendships[index] = {...state.friendships[index], ...action.payload};
+
+      state.friendships[index] = {...state.friendships[index], status};
     },
-    removeFriendship: (state, action: PayloadAction<number>) => {
-      state.friendships = state.friendships.filter((f) => f.id !== action.payload)
-    },
-    setOnlineFriends: (state, action: PayloadAction<Record<number, boolean>>) => {
-      state.onlineFriends = action.payload;
-    },
-    addOnlineFriend: (state, action: PayloadAction<number>) => {
-      state.onlineFriends[action.payload] = true;
-    },
-    removeOnlineFriend: (state, action: PayloadAction<number>) => {
-      state.onlineFriends[action.payload] = false;
+
+    removeFriendship: (state,action: PayloadAction<{userId: string,friendId: string}>) => {
+      const { userId, friendId } = action.payload;
+
+      const index = state.friendships.findIndex((friendship) =>
+        (friendship.userId === userId && friendship.friendId === friendId) ||
+        (friendship.userId === friendId && friendship.friendId === userId)
+      );
+
+      if (index === -1) return;
+      state.friendships.splice(index, 1);
     },
   },
-})
+});
 
 export const {
   setFriendships,
-  addFriendships,
+  addFriendship,
   updateFriendship,
   removeFriendship,
 } = friendshipsSlice.actions;

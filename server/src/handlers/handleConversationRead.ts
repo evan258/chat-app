@@ -46,6 +46,7 @@ export async function handleConversationRead(
       },
       data: {
         lastReadMessageId: lastMessage.id,
+        unreadCount: 0,
       },
     });
 
