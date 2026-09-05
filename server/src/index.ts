@@ -9,6 +9,8 @@ import { setupWebSocket } from "./websocket.js";
 import messageRoutes from "./routes/messageRoutes.js"
 import fileRoutes from "./routes/fileRoutes.js"
 import conversationRoutes from "./routes/conversationRoutes.js"
+import friendshipRoutes from "./routes/friendshipRoutes.js"
+import notificationRoutes from "./routes/notificationRoutes.js"
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.get("/", (_req, res) => {
 app.use("/messages", authMiddleware, messageRoutes);
 app.use("/files", authMiddleware, fileRoutes);
 app.use("/conversations", authMiddleware, conversationRoutes);
+app.use("/friendships", authMiddleware, friendshipRoutes);
+app.use("/notifications", authMiddleware, notificationRoutes);
 
 const server = createServer(app);
 

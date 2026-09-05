@@ -236,7 +236,8 @@ exports.Prisma.NotificationScalarFieldEnum = {
   initiatorId: 'initiatorId',
   recipientId: 'recipientId',
   type: 'type',
-  conversationId: 'conversationId'
+  conversationId: 'conversationId',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -272,11 +273,14 @@ exports.ReactionType = exports.$Enums.ReactionType = {
 };
 
 exports.NotificationType = exports.$Enums.NotificationType = {
-  FriendRequestReceived: 'FriendRequestReceived',
+  RemovedFromGroup: 'RemovedFromGroup',
+  AddedToGroup: 'AddedToGroup',
+  Unfriended: 'Unfriended',
+  FriendRequestSent: 'FriendRequestSent',
   FriendRequestAccepted: 'FriendRequestAccepted',
   FriendRequestRejected: 'FriendRequestRejected',
-  GroupAdded: 'GroupAdded',
-  GroupRemoved: 'GroupRemoved'
+  GroupNameChanged: 'GroupNameChanged',
+  GroupPhotoChanged: 'GroupPhotoChanged'
 };
 
 exports.Prisma.ModelName = {

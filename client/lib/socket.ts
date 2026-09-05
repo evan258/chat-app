@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { authClient } from "./auth-client";
 import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity } from "@/state/conversationsSlice";
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
+import { addNotification } from "@/state/notificationsSlice";
 
 let socket: WebSocket | null = null;
 
@@ -242,13 +243,17 @@ export async function connectSocket () {
         }));
         break;
 
+      case "incoming_notification":
+        store.dispatch(addNotification(data.notification));
+        break;
+
       default:
         break;
     }
   }
 
-  socket.onerror = () => {
-    socket = null;
+  socket.onerror = (err) => {
+    console.log(err);
   }
 
   socket.onclose = () => {

@@ -31,11 +31,14 @@ enum ReactionType {
 }
 
 enum NotificationType {
-  FriendRequestReceived
+  RemovedFromGroup
+  AddedToGroup
+  Unfriended
+  FriendRequestSent
   FriendRequestAccepted
   FriendRequestRejected
-  GroupAdded
-  GroupRemoved
+  GroupNameChanged
+  GroupPhotoChanged
 }
 
 model User {
@@ -236,6 +239,7 @@ model Notification {
   recipientId    String
   type           NotificationType
   conversationId Int?
+  createdAt      DateTime         @default(now())
 
   initiator User @relation("NotificationInitiator", fields: [initiatorId], references: [id])
   recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id])

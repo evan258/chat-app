@@ -1,12 +1,26 @@
-import { Conversation, Notification, User } from "../generated/prisma";
+import { NotificationType } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-export interface NotificationExtended extends Notification {
-  initiator: User,
-  conversation?: Conversation,
+export interface Notification {
+  id: number,
+  type: NotificationType,
+
+  initiator: {
+    id: string,
+    name: string,
+    avatarUrl?: string,
+  },
+
+  conversationId?: {
+    id: number,
+    name: string,
+    avatarUrl?: string,
+  },
+
+  createdAt: string,
 }
 interface NotificationsState {
-  notifications: NotificationExtended[],
+  notifications: Notification[],
   lastReadNotificationId: number | null,
 }
 
@@ -19,23 +33,20 @@ const notificationsSlice = createSlice({
   name: "notifications",
   initialState,
   reducers: {
-    setNotifications: (state, action: PayloadAction<NotificationExtended[]>) => {
+    setNotifications: (state, action: PayloadAction<Notification[]>) => {
       state.notifications = action.payload;
     },
-    addNotification: (state, action: PayloadAction<NotificationExtended>) => {
+    addNotification: (state, action: PayloadAction<Notification>) => {
       state.notifications = [action.payload, ...state.notifications]
     },
     removeNotification: (state, action: PayloadAction<number>) => {
-      const index = state.notifications.findIndex((notification) => notification.id === action.payload);
-      if (index === -1) return;
-      state.notifications.splice(index, 1);
+      state.notifications = state.notifications.filter((notification) => notification.id !== action.payload);
     },
     setLastReadNotificationId: (state, action: PayloadAction<number | null>) => {
       state.lastReadNotificationId = action.payload;
     },
     updateLastReadNotificationId: (state) => {
-      const lastNotification = state.notifications[0];
-      state.lastReadNotificationId = lastNotification?.id ?? null;
+      state.lastReadNotificationId = state.notifications[0]?.id ?? null;
     },
   },
 })

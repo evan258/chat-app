@@ -213,6 +213,7 @@ export async function createConversation(req: Request, res: Response) {
         id: true,
         type: true,
         name: true,
+        fileId: true,
         members: {
           select: {
             userId: true,
@@ -239,6 +240,66 @@ export async function createConversation(req: Request, res: Response) {
       sendToUser(memberId, {
         type: "incoming_conversation_added",
         conversation: conversationForClient,
+      });
+
+      const notification = await prisma.notification.create({
+        data: {
+          initiatorId: userId,
+          recipientId: memberId,
+          type: "AddedToGroup",
+          conversationId: createdConversation.id,
+        },
+        include: {
+          initiator: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          conversation: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      let initiatorAvatarUrl: string | undefined;
+      let conversationAvatarUrl: string | undefined;
+
+      if (notification.initiator.avatar) {
+        initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+      }
+
+      if (notification.conversation?.avatar) {
+        conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+      }
+
+      sendToUser(memberId, {
+        type: "incoming_notification",
+        notification: {
+          id: notification.id,
+          type: notification.type,
+
+          initiator: {
+            id: notification.initiator.id,
+            name: notification.initiator.name,
+            avatarUrl: initiatorAvatarUrl,
+          },
+
+          ...(notification.conversation && {
+            conversationId: {
+              id: notification.conversation.id,
+              name: notification.conversation.name,
+              avatarUrl: conversationAvatarUrl,
+            },
+          }),
+
+          createdAt: notification.createdAt.toISOString(),
+        },
       });
     }
   } catch (err) {
@@ -280,6 +341,7 @@ export async function updateConversation(req: Request, res: Response) {
       select: {
         id: true,
         type: true,
+        name: true,
         fileId: true,
       },
     });
@@ -358,6 +420,10 @@ export async function updateConversation(req: Request, res: Response) {
 
     res.json(updatedConversation);
 
+    const nameChanged = updated.name?.trim() !== existingConversation.name;
+
+    const fileChanged = updated.fileId !== existingConversation.fileId;
+
     for (const member of updated.members) {
       if (member.userId === userId) continue;
 
@@ -365,8 +431,126 @@ export async function updateConversation(req: Request, res: Response) {
         type: "incoming_conversation_update",
         conversation: updatedConversation,
       });
+
+      if (nameChanged) {
+        const notification = await prisma.notification.create({
+          data: {
+            initiatorId: userId,
+            recipientId: member.userId,
+            type: "GroupNameChanged",
+            conversationId,
+          },
+          include: {
+            initiator: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            conversation: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        });
+
+        let initiatorAvatarUrl: string | undefined;
+        let conversationAvatarUrl: string | undefined;
+
+        if (notification.initiator.avatar) {
+          initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+        }
+
+        if (notification.conversation?.avatar) {
+          conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+        }
+
+        sendToUser(member.userId, {
+          type: "incoming_notification",
+          notification: {
+            id: notification.id,
+            type: notification.type,
+            initiator: {
+              id: notification.initiator.id,
+              name: notification.initiator.name,
+              avatarUrl: initiatorAvatarUrl,
+            },
+            ...(notification.conversation && {
+              conversationId: {
+                id: notification.conversation.id,
+                name: notification.conversation.name,
+                avatarUrl: conversationAvatarUrl,
+              },
+            }),
+            createdAt: notification.createdAt.toISOString(),
+          },
+        });
+      }
+
+      if (fileChanged) {
+        const notification = await prisma.notification.create({
+          data: {
+            initiatorId: userId,
+            recipientId: member.userId,
+            type: "GroupPhotoChanged",
+            conversationId,
+          },
+          include: {
+            initiator: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            conversation: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        });
+
+        let initiatorAvatarUrl: string | undefined;
+        let conversationAvatarUrl: string | undefined;
+
+        if (notification.initiator.avatar) {
+          initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+        }
+
+        if (notification.conversation?.avatar) {
+          conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+        }
+
+        sendToUser(member.userId, {
+          type: "incoming_notification",
+          notification: {
+            id: notification.id,
+            type: notification.type,
+            initiator: {
+              id: notification.initiator.id,
+              name: notification.initiator.name,
+              avatarUrl: conversationAvatarUrl,
+            },
+            ...(notification.conversation && {
+              conversationId: {
+                id: notification.conversation.id,
+                name: notification.conversation.name,
+                avatarUrl: conversationAvatarUrl,
+              },
+            }),
+            createdAt: notification.createdAt.toISOString(),
+          },
+        });
+      }
     }
-    
+
     if (fileToDelete) {
       await prisma.file.delete({
         where: {
@@ -399,6 +583,8 @@ export async function removeMember(req: Request, res: Response) {
       },
       select: {
         type: true,
+        name: true,
+        avatar: true,
         members: {
           select: {
             userId: true,
@@ -448,6 +634,63 @@ export async function removeMember(req: Request, res: Response) {
       },
     });
 
+    const notification = await prisma.notification.create({
+      data: {
+        initiatorId: userId,
+        recipientId: memberId,
+        type: "RemovedFromGroup",
+        conversationId,
+      },
+      include: {
+        initiator: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        conversation: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    let initiatorAvatarUrl: string | undefined;
+    let conversationAvatarUrl: string | undefined;
+
+    if (notification.initiator.avatar) {
+      initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+    }
+
+    if (notification.conversation?.avatar) {
+      conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+    }
+
+    const notificationForClient = {
+      id: notification.id,
+      type: notification.type,
+
+      initiator: {
+        id: notification.initiator.id,
+        name: notification.initiator.name,
+        avatarUrl: initiatorAvatarUrl,
+      },
+
+      ...(notification.conversation && {
+        conversationId: {
+          id: notification.conversation.id,
+          name: notification.conversation.name,
+          avatarUrl: conversationAvatarUrl,
+        },
+      }),
+
+      createdAt: notification.createdAt.toISOString(),
+    };
+
     res.json({
       conversationId,
       memberId,
@@ -459,8 +702,14 @@ export async function removeMember(req: Request, res: Response) {
       userId,
     });
 
+    sendToUser(memberId, {
+      type: "incoming_notification",
+      notification: notificationForClient,
+    });
+
     for (const member of conversation.members) {
       if (member.userId === memberId) return;
+
       sendToUser(member.userId, {
         type: "incoming_member_removal",
         conversationId,
@@ -469,8 +718,6 @@ export async function removeMember(req: Request, res: Response) {
       });
     }
   } catch (err) {
-    console.log(err);
-
     res.status(500).json({
       message: "Failed to remove member",
     });

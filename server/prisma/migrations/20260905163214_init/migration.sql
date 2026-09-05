@@ -8,7 +8,7 @@ CREATE TYPE "FriendshipStatus" AS ENUM ('Pending', 'Accepted');
 CREATE TYPE "ReactionType" AS ENUM ('Love', 'Haha', 'Sad', 'Wow', 'Angry');
 
 -- CreateEnum
-CREATE TYPE "NotificationType" AS ENUM ('FriendRequestReceived', 'FriendRequestAccepted', 'FriendRequestRejected', 'GroupAdded', 'GroupRemoved');
+CREATE TYPE "NotificationType" AS ENUM ('RemovedFromGroup', 'AddedToGroup', 'Unfriended', 'FriendRequestSent', 'FriendRequestAccepted', 'FriendRequestRejected', 'GroupNameChanged', 'GroupPhotoChanged');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -161,6 +161,7 @@ CREATE TABLE "Notification" (
     "recipientId" TEXT NOT NULL,
     "type" "NotificationType" NOT NULL,
     "conversationId" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );

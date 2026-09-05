@@ -106,11 +106,14 @@ export type ReactionType = (typeof ReactionType)[keyof typeof ReactionType]
 
 
 export const NotificationType: {
-  FriendRequestReceived: 'FriendRequestReceived',
+  RemovedFromGroup: 'RemovedFromGroup',
+  AddedToGroup: 'AddedToGroup',
+  Unfriended: 'Unfriended',
+  FriendRequestSent: 'FriendRequestSent',
   FriendRequestAccepted: 'FriendRequestAccepted',
   FriendRequestRejected: 'FriendRequestRejected',
-  GroupAdded: 'GroupAdded',
-  GroupRemoved: 'GroupRemoved'
+  GroupNameChanged: 'GroupNameChanged',
+  GroupPhotoChanged: 'GroupPhotoChanged'
 };
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
@@ -15134,6 +15137,7 @@ export namespace Prisma {
     recipientId: string | null
     type: $Enums.NotificationType | null
     conversationId: number | null
+    createdAt: Date | null
   }
 
   export type NotificationMaxAggregateOutputType = {
@@ -15142,6 +15146,7 @@ export namespace Prisma {
     recipientId: string | null
     type: $Enums.NotificationType | null
     conversationId: number | null
+    createdAt: Date | null
   }
 
   export type NotificationCountAggregateOutputType = {
@@ -15150,6 +15155,7 @@ export namespace Prisma {
     recipientId: number
     type: number
     conversationId: number
+    createdAt: number
     _all: number
   }
 
@@ -15170,6 +15176,7 @@ export namespace Prisma {
     recipientId?: true
     type?: true
     conversationId?: true
+    createdAt?: true
   }
 
   export type NotificationMaxAggregateInputType = {
@@ -15178,6 +15185,7 @@ export namespace Prisma {
     recipientId?: true
     type?: true
     conversationId?: true
+    createdAt?: true
   }
 
   export type NotificationCountAggregateInputType = {
@@ -15186,6 +15194,7 @@ export namespace Prisma {
     recipientId?: true
     type?: true
     conversationId?: true
+    createdAt?: true
     _all?: true
   }
 
@@ -15281,6 +15290,7 @@ export namespace Prisma {
     recipientId: string
     type: $Enums.NotificationType
     conversationId: number | null
+    createdAt: Date
     _count: NotificationCountAggregateOutputType | null
     _avg: NotificationAvgAggregateOutputType | null
     _sum: NotificationSumAggregateOutputType | null
@@ -15308,6 +15318,7 @@ export namespace Prisma {
     recipientId?: boolean
     type?: boolean
     conversationId?: boolean
+    createdAt?: boolean
     initiator?: boolean | UserDefaultArgs<ExtArgs>
     recipient?: boolean | UserDefaultArgs<ExtArgs>
     conversation?: boolean | Notification$conversationArgs<ExtArgs>
@@ -15320,6 +15331,7 @@ export namespace Prisma {
     recipientId?: boolean
     type?: boolean
     conversationId?: boolean
+    createdAt?: boolean
     initiator?: boolean | UserDefaultArgs<ExtArgs>
     recipient?: boolean | UserDefaultArgs<ExtArgs>
     conversation?: boolean | Notification$conversationArgs<ExtArgs>
@@ -15331,6 +15343,7 @@ export namespace Prisma {
     recipientId?: boolean
     type?: boolean
     conversationId?: boolean
+    createdAt?: boolean
     initiator?: boolean | UserDefaultArgs<ExtArgs>
     recipient?: boolean | UserDefaultArgs<ExtArgs>
     conversation?: boolean | Notification$conversationArgs<ExtArgs>
@@ -15342,9 +15355,10 @@ export namespace Prisma {
     recipientId?: boolean
     type?: boolean
     conversationId?: boolean
+    createdAt?: boolean
   }
 
-  export type NotificationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "initiatorId" | "recipientId" | "type" | "conversationId", ExtArgs["result"]["notification"]>
+  export type NotificationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "initiatorId" | "recipientId" | "type" | "conversationId" | "createdAt", ExtArgs["result"]["notification"]>
   export type NotificationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     initiator?: boolean | UserDefaultArgs<ExtArgs>
     recipient?: boolean | UserDefaultArgs<ExtArgs>
@@ -15376,6 +15390,7 @@ export namespace Prisma {
       recipientId: string
       type: $Enums.NotificationType
       conversationId: number | null
+      createdAt: Date
     }, ExtArgs["result"]["notification"]>
     composites: {}
   }
@@ -15808,6 +15823,7 @@ export namespace Prisma {
     readonly recipientId: FieldRef<"Notification", 'String'>
     readonly type: FieldRef<"Notification", 'NotificationType'>
     readonly conversationId: FieldRef<"Notification", 'Int'>
+    readonly createdAt: FieldRef<"Notification", 'DateTime'>
   }
     
 
@@ -16428,7 +16444,8 @@ export namespace Prisma {
     initiatorId: 'initiatorId',
     recipientId: 'recipientId',
     type: 'type',
-    conversationId: 'conversationId'
+    conversationId: 'conversationId',
+    createdAt: 'createdAt'
   };
 
   export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
@@ -17413,6 +17430,7 @@ export namespace Prisma {
     recipientId?: StringFilter<"Notification"> | string
     type?: EnumNotificationTypeFilter<"Notification"> | $Enums.NotificationType
     conversationId?: IntNullableFilter<"Notification"> | number | null
+    createdAt?: DateTimeFilter<"Notification"> | Date | string
     initiator?: XOR<UserScalarRelationFilter, UserWhereInput>
     recipient?: XOR<UserScalarRelationFilter, UserWhereInput>
     conversation?: XOR<ConversationNullableScalarRelationFilter, ConversationWhereInput> | null
@@ -17425,6 +17443,7 @@ export namespace Prisma {
     recipientId?: SortOrder
     type?: SortOrder
     conversationId?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
     initiator?: UserOrderByWithRelationInput
     recipient?: UserOrderByWithRelationInput
     conversation?: ConversationOrderByWithRelationInput
@@ -17440,6 +17459,7 @@ export namespace Prisma {
     recipientId?: StringFilter<"Notification"> | string
     type?: EnumNotificationTypeFilter<"Notification"> | $Enums.NotificationType
     conversationId?: IntNullableFilter<"Notification"> | number | null
+    createdAt?: DateTimeFilter<"Notification"> | Date | string
     initiator?: XOR<UserScalarRelationFilter, UserWhereInput>
     recipient?: XOR<UserScalarRelationFilter, UserWhereInput>
     conversation?: XOR<ConversationNullableScalarRelationFilter, ConversationWhereInput> | null
@@ -17452,6 +17472,7 @@ export namespace Prisma {
     recipientId?: SortOrder
     type?: SortOrder
     conversationId?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
     _count?: NotificationCountOrderByAggregateInput
     _avg?: NotificationAvgOrderByAggregateInput
     _max?: NotificationMaxOrderByAggregateInput
@@ -17468,6 +17489,7 @@ export namespace Prisma {
     recipientId?: StringWithAggregatesFilter<"Notification"> | string
     type?: EnumNotificationTypeWithAggregatesFilter<"Notification"> | $Enums.NotificationType
     conversationId?: IntNullableWithAggregatesFilter<"Notification"> | number | null
+    createdAt?: DateTimeWithAggregatesFilter<"Notification"> | Date | string
   }
 
   export type UserCreateInput = {
@@ -18298,6 +18320,7 @@ export namespace Prisma {
 
   export type NotificationCreateInput = {
     type: $Enums.NotificationType
+    createdAt?: Date | string
     initiator: UserCreateNestedOneWithoutInitiatedNotificationsInput
     recipient: UserCreateNestedOneWithoutReceivedNotificationsInput
     conversation?: ConversationCreateNestedOneWithoutNotificationsInput
@@ -18310,11 +18333,13 @@ export namespace Prisma {
     recipientId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
     lastReadBy?: UserUncheckedCreateNestedOneWithoutLastReadNotificationInput
   }
 
   export type NotificationUpdateInput = {
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     initiator?: UserUpdateOneRequiredWithoutInitiatedNotificationsNestedInput
     recipient?: UserUpdateOneRequiredWithoutReceivedNotificationsNestedInput
     conversation?: ConversationUpdateOneWithoutNotificationsNestedInput
@@ -18327,6 +18352,7 @@ export namespace Prisma {
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     lastReadBy?: UserUncheckedUpdateOneWithoutLastReadNotificationNestedInput
   }
 
@@ -18336,10 +18362,12 @@ export namespace Prisma {
     recipientId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
   }
 
   export type NotificationUpdateManyMutationInput = {
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type NotificationUncheckedUpdateManyInput = {
@@ -18348,6 +18376,7 @@ export namespace Prisma {
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type StringFilter<$PrismaModel = never> = {
@@ -19151,6 +19180,7 @@ export namespace Prisma {
     recipientId?: SortOrder
     type?: SortOrder
     conversationId?: SortOrder
+    createdAt?: SortOrder
   }
 
   export type NotificationAvgOrderByAggregateInput = {
@@ -19164,6 +19194,7 @@ export namespace Prisma {
     recipientId?: SortOrder
     type?: SortOrder
     conversationId?: SortOrder
+    createdAt?: SortOrder
   }
 
   export type NotificationMinOrderByAggregateInput = {
@@ -19172,6 +19203,7 @@ export namespace Prisma {
     recipientId?: SortOrder
     type?: SortOrder
     conversationId?: SortOrder
+    createdAt?: SortOrder
   }
 
   export type NotificationSumOrderByAggregateInput = {
@@ -20872,6 +20904,7 @@ export namespace Prisma {
 
   export type NotificationCreateWithoutInitiatorInput = {
     type: $Enums.NotificationType
+    createdAt?: Date | string
     recipient: UserCreateNestedOneWithoutReceivedNotificationsInput
     conversation?: ConversationCreateNestedOneWithoutNotificationsInput
     lastReadBy?: UserCreateNestedOneWithoutLastReadNotificationInput
@@ -20882,6 +20915,7 @@ export namespace Prisma {
     recipientId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
     lastReadBy?: UserUncheckedCreateNestedOneWithoutLastReadNotificationInput
   }
 
@@ -20897,6 +20931,7 @@ export namespace Prisma {
 
   export type NotificationCreateWithoutRecipientInput = {
     type: $Enums.NotificationType
+    createdAt?: Date | string
     initiator: UserCreateNestedOneWithoutInitiatedNotificationsInput
     conversation?: ConversationCreateNestedOneWithoutNotificationsInput
     lastReadBy?: UserCreateNestedOneWithoutLastReadNotificationInput
@@ -20907,6 +20942,7 @@ export namespace Prisma {
     initiatorId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
     lastReadBy?: UserUncheckedCreateNestedOneWithoutLastReadNotificationInput
   }
 
@@ -20922,6 +20958,7 @@ export namespace Prisma {
 
   export type NotificationCreateWithoutLastReadByInput = {
     type: $Enums.NotificationType
+    createdAt?: Date | string
     initiator: UserCreateNestedOneWithoutInitiatedNotificationsInput
     recipient: UserCreateNestedOneWithoutReceivedNotificationsInput
     conversation?: ConversationCreateNestedOneWithoutNotificationsInput
@@ -20933,6 +20970,7 @@ export namespace Prisma {
     recipientId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
   }
 
   export type NotificationCreateOrConnectWithoutLastReadByInput = {
@@ -21226,6 +21264,7 @@ export namespace Prisma {
     recipientId?: StringFilter<"Notification"> | string
     type?: EnumNotificationTypeFilter<"Notification"> | $Enums.NotificationType
     conversationId?: IntNullableFilter<"Notification"> | number | null
+    createdAt?: DateTimeFilter<"Notification"> | Date | string
   }
 
   export type NotificationUpsertWithWhereUniqueWithoutRecipientInput = {
@@ -21257,6 +21296,7 @@ export namespace Prisma {
 
   export type NotificationUpdateWithoutLastReadByInput = {
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     initiator?: UserUpdateOneRequiredWithoutInitiatedNotificationsNestedInput
     recipient?: UserUpdateOneRequiredWithoutReceivedNotificationsNestedInput
     conversation?: ConversationUpdateOneWithoutNotificationsNestedInput
@@ -21268,6 +21308,7 @@ export namespace Prisma {
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type SessionUpsertWithWhereUniqueWithoutUserInput = {
@@ -21656,6 +21697,7 @@ export namespace Prisma {
 
   export type NotificationCreateWithoutConversationInput = {
     type: $Enums.NotificationType
+    createdAt?: Date | string
     initiator: UserCreateNestedOneWithoutInitiatedNotificationsInput
     recipient: UserCreateNestedOneWithoutReceivedNotificationsInput
     lastReadBy?: UserCreateNestedOneWithoutLastReadNotificationInput
@@ -21666,6 +21708,7 @@ export namespace Prisma {
     initiatorId: string
     recipientId: string
     type: $Enums.NotificationType
+    createdAt?: Date | string
     lastReadBy?: UserUncheckedCreateNestedOneWithoutLastReadNotificationInput
   }
 
@@ -23527,6 +23570,7 @@ export namespace Prisma {
     recipientId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
   }
 
   export type NotificationCreateManyRecipientInput = {
@@ -23534,6 +23578,7 @@ export namespace Prisma {
     initiatorId: string
     type: $Enums.NotificationType
     conversationId?: number | null
+    createdAt?: Date | string
   }
 
   export type SessionCreateManyUserInput = {
@@ -23712,6 +23757,7 @@ export namespace Prisma {
 
   export type NotificationUpdateWithoutInitiatorInput = {
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     recipient?: UserUpdateOneRequiredWithoutReceivedNotificationsNestedInput
     conversation?: ConversationUpdateOneWithoutNotificationsNestedInput
     lastReadBy?: UserUpdateOneWithoutLastReadNotificationNestedInput
@@ -23722,6 +23768,7 @@ export namespace Prisma {
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     lastReadBy?: UserUncheckedUpdateOneWithoutLastReadNotificationNestedInput
   }
 
@@ -23730,10 +23777,12 @@ export namespace Prisma {
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type NotificationUpdateWithoutRecipientInput = {
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     initiator?: UserUpdateOneRequiredWithoutInitiatedNotificationsNestedInput
     conversation?: ConversationUpdateOneWithoutNotificationsNestedInput
     lastReadBy?: UserUpdateOneWithoutLastReadNotificationNestedInput
@@ -23744,6 +23793,7 @@ export namespace Prisma {
     initiatorId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     lastReadBy?: UserUncheckedUpdateOneWithoutLastReadNotificationNestedInput
   }
 
@@ -23752,6 +23802,7 @@ export namespace Prisma {
     initiatorId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
     conversationId?: NullableIntFieldUpdateOperationsInput | number | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type SessionUpdateWithoutUserInput = {
@@ -23852,6 +23903,7 @@ export namespace Prisma {
     initiatorId: string
     recipientId: string
     type: $Enums.NotificationType
+    createdAt?: Date | string
   }
 
   export type MessageUpdateWithoutConversationInput = {
@@ -23911,6 +23963,7 @@ export namespace Prisma {
 
   export type NotificationUpdateWithoutConversationInput = {
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     initiator?: UserUpdateOneRequiredWithoutInitiatedNotificationsNestedInput
     recipient?: UserUpdateOneRequiredWithoutReceivedNotificationsNestedInput
     lastReadBy?: UserUpdateOneWithoutLastReadNotificationNestedInput
@@ -23921,6 +23974,7 @@ export namespace Prisma {
     initiatorId?: StringFieldUpdateOperationsInput | string
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     lastReadBy?: UserUncheckedUpdateOneWithoutLastReadNotificationNestedInput
   }
 
@@ -23929,6 +23983,7 @@ export namespace Prisma {
     initiatorId?: StringFieldUpdateOperationsInput | string
     recipientId?: StringFieldUpdateOperationsInput | string
     type?: EnumNotificationTypeFieldUpdateOperationsInput | $Enums.NotificationType
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type MessageUpdateWithoutDeletedByInput = {

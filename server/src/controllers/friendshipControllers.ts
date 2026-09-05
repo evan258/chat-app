@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
-import { sendToUser } from "../lib/utils.js";
+import { getPreviewUrls, sendToUser } from "../lib/utils.js";
 import { s3Client } from "../lib/s3Client.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
@@ -10,9 +10,7 @@ export async function unfriendUser(req: Request, res: Response) {
     const friendId = req.params.userId as string;
 
     if (!friendId || friendId === userId) {
-      return res.status(400).json({
-        message: "Invalid users",
-      });
+      return res.status(400).json({message: "Invalid users"});
     }
 
     const friendship = await prisma.friendship.findFirst({
@@ -31,7 +29,7 @@ export async function unfriendUser(req: Request, res: Response) {
     });
 
     if (!friendship) {
-      return res.status(404).json({message: "Friendship not found",});
+      return res.status(404).json({message: "Friendship not found"});
     }
 
     const conversation = await prisma.conversation.findFirst({
@@ -95,6 +93,23 @@ export async function unfriendUser(req: Request, res: Response) {
       }
     }
 
+    const notification = await prisma.notification.create({
+      data: {
+        initiatorId: userId,
+        recipientId: friendId,
+        type: "Unfriended",
+      },
+      include: {
+        initiator: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
     await prisma.$transaction(async (tx) => {
       await tx.conversation.update({
         where: {
@@ -114,7 +129,7 @@ export async function unfriendUser(req: Request, res: Response) {
       await tx.messageReaction.deleteMany({
         where: {
           messageId: {
-            in: conversation.messages.map((message) => message.id)
+            in: conversation.messages.map((message) => message.id),
           },
         },
       });
@@ -122,7 +137,7 @@ export async function unfriendUser(req: Request, res: Response) {
       await tx.file.deleteMany({
         where: {
           messageId: {
-            in: conversation.messages.map((message) => message.id)
+            in: conversation.messages.map((message) => message.id),
           },
         },
       });
@@ -160,18 +175,39 @@ export async function unfriendUser(req: Request, res: Response) {
       });
     });
 
+    let initiatorAvatarUrl: string | undefined;
+
+    if (notification.initiator.avatar) {
+      initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+    }
+
+    const notificationForClient = {
+      id: notification.id,
+      type: notification.type,
+      initiator: {
+        id: notification.initiator.id,
+        name: notification.initiator.name,
+        avatarUrl: initiatorAvatarUrl,
+      },
+      createdAt: notification.createdAt.toISOString(),
+    };
+
     res.json({
       friendId,
       userId,
       conversationId: conversation.id,
     });
 
-    
     sendToUser(friendId, {
       type: "incoming_user_unfriend",
       friendId,
       userId,
       conversationId: conversation.id,
+    });
+
+    sendToUser(friendId, {
+      type: "incoming_notification",
+      notification: notificationForClient,
     });
 
     for (const storageKey of s3Keys) {
@@ -209,11 +245,45 @@ export async function rejectFriendRequest(req: Request, res: Response) {
       return res.status(400).json({message: "Friend request is not pending"});
     }
 
+    const notification = await prisma.notification.create({
+      data: {
+        initiatorId: userId,
+        recipientId: friendId,
+        type: "FriendRequestRejected",
+      },
+      include: {
+        initiator: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
     await prisma.friendship.delete({
       where: {
         id: friendship.id,
       },
     });
+
+    let initiatorAvatarUrl: string | undefined;
+
+    if (notification.initiator.avatar) {
+      initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+    }
+
+    const notificationForClient = {
+      id: notification.id,
+      type: notification.type,
+      initiator: {
+        id: notification.initiator.id,
+        name: notification.initiator.name,
+        avatarUrl: initiatorAvatarUrl,
+      },
+      createdAt: notification.createdAt.toISOString(),
+    };
 
     res.json({
       friendId,
@@ -224,6 +294,11 @@ export async function rejectFriendRequest(req: Request, res: Response) {
       type: "friend_request_rejected",
       friendId,
       userId,
+    });
+
+    sendToUser(friendId, {
+      type: "incoming_notification",
+      notification: notificationForClient,
     });
   } catch (err) {
     res.status(500).json({message: "Failed to reject friend request"});
@@ -252,7 +327,7 @@ export async function acceptFriendRequest(req: Request, res: Response) {
       return res.status(400).json({message: "Friend request is not pending"});
     }
 
-    const conversation = await prisma.$transaction(async (tx) => {
+    const { conversation, notification } = await prisma.$transaction(async (tx) => {
       await tx.friendship.update({
         where: {
           id: friendship.id,
@@ -262,7 +337,7 @@ export async function acceptFriendRequest(req: Request, res: Response) {
         },
       });
 
-      return tx.conversation.create({
+      const conversation = await tx.conversation.create({
         data: {
           type: "Direct",
           members: {
@@ -283,6 +358,33 @@ export async function acceptFriendRequest(req: Request, res: Response) {
           },
         },
       });
+
+      const notification = await tx.notification.create({
+        data: {
+          initiatorId: userId,
+          recipientId: friendId,
+          type: "FriendRequestAccepted",
+          conversationId: conversation.id,
+        },
+        include: {
+          initiator: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          conversation: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      return {conversation, notification};
     });
 
     const conversationForClient = {
@@ -290,6 +392,42 @@ export async function acceptFriendRequest(req: Request, res: Response) {
       type: conversation.type,
       members: conversation.members.map(({ userId }) => userId),
       unreadCount: 0,
+    };
+
+    let initiatorAvatarUrl: string | undefined;
+    let conversationAvatarUrl: string | undefined;
+
+    if (notification.initiator.avatar) {
+      initiatorAvatarUrl = (
+        await getPreviewUrls([notification.initiator.avatar])
+      )[0];
+    }
+
+    if (notification.conversation?.avatar) {
+      conversationAvatarUrl = (
+        await getPreviewUrls([notification.conversation.avatar])
+      )[0];
+    }
+
+    const notificationForClient = {
+      id: notification.id,
+      type: notification.type,
+
+      initiator: {
+        id: notification.initiator.id,
+        name: notification.initiator.name,
+        avatarUrl: initiatorAvatarUrl,
+      },
+
+      ...(notification.conversation && {
+        conversationId: {
+          id: notification.conversation.id,
+          name: notification.conversation.name,
+          avatarUrl: conversationAvatarUrl,
+        },
+      }),
+
+      createdAt: notification.createdAt.toISOString(),
     };
 
     res.status(201).json({
@@ -303,6 +441,11 @@ export async function acceptFriendRequest(req: Request, res: Response) {
       conversation: conversationForClient,
       friendId,
       userId,
+    });
+
+    sendToUser(friendId, {
+      type: "incoming_notification",
+      notification: notificationForClient,
     });
   } catch (err) {
     res.status(500).json({message: "Failed to accept friend request"});
@@ -347,7 +490,7 @@ export async function addFriendRequest(req: Request, res: Response) {
     });
 
     if (existingFriendship) {
-      return res.status(409).json({message: "Already existing friendship or friend request",});
+      return res.status(409).json({message: "Already existing friendship or friend request"});
     }
 
     const friendship = await prisma.friendship.create({
@@ -357,6 +500,42 @@ export async function addFriendRequest(req: Request, res: Response) {
       },
     });
 
+    const notification = await prisma.notification.create({
+      data: {
+        initiatorId: userId,
+        recipientId: friendId,
+        type: "FriendRequestSent",
+      },
+      include: {
+        initiator: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    let initiatorAvatarUrl: string | undefined;
+
+    if (notification.initiator.avatar) {
+      initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
+    }
+
+    const notificationForClient = {
+      id: notification.id,
+      type: notification.type,
+
+      initiator: {
+        id: notification.initiator.id,
+        name: notification.initiator.name,
+        avatarUrl: initiatorAvatarUrl,
+      },
+
+      createdAt: notification.createdAt.toISOString(),
+    };
+
     res.status(201).json({
       friendship,
     });
@@ -365,8 +544,13 @@ export async function addFriendRequest(req: Request, res: Response) {
       type: "incoming_friend_request",
       friendship,
     });
+
+    sendToUser(friendId, {
+      type: "incoming_notification",
+      notification: notificationForClient,
+    });
   } catch (err) {
-    return res.status(500).json({message: "Failed to send friend request",});
+    return res.status(500).json({message: "Failed to send friend request"});
   }
 }
 
