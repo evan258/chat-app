@@ -639,7 +639,6 @@ export async function removeMember(req: Request, res: Response) {
     sendToUser(memberId, {
       type: "removed_from_conversation",
       conversationId,
-      userId,
     });
 
     sendToUser(memberId, {
@@ -694,7 +693,7 @@ export async function removeMember(req: Request, res: Response) {
     }
 
     for (const member of conversation.members) {
-      if (member.userId === memberId) continue;
+      if (member.userId === memberId || member.userId === userId) continue;
 
       sendToUser(member.userId, {
         type: "incoming_member_removal",
