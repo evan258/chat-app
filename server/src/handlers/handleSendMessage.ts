@@ -53,7 +53,7 @@ export async function handleSendMessage (ws: WebSocket, userId: string, data: Me
       return file;
     });
 
-    const previewUrls = await getPreviewUrls(orderedFiles);
+    const {urls, expiresAt} = await getPreviewUrls(orderedFiles);
     
     const message = await prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
@@ -94,7 +94,8 @@ export async function handleSendMessage (ws: WebSocket, userId: string, data: Me
       text: message.text,
       unsent: false,
       status: "sent",
-      previewUrls,
+      previewUrls: urls,
+      expiresAt,
       createdAt: message.createdAt.toISOString(),
       reactions: message.reactions,
     }

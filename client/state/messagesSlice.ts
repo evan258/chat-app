@@ -7,6 +7,7 @@ export interface Message {
   senderId: string,
   createdAt: null | string,
   previewUrls: string[],      
+  expiresAt: string,
   text?: string | null,
   unsent: boolean,
   status: "sending" | "sent" | "failed",

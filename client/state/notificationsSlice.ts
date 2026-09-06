@@ -5,11 +5,8 @@ export interface Notification {
   id: number,
   type: NotificationType,
 
-  initiator: {
-    id: string,
-    name: string,
-    avatarUrl?: string,
-  },
+  initiatorId: string,
+  recipientId: string,
 
   conversationId?: {
     id: number,

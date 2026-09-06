@@ -60,10 +60,12 @@ export async function getConversations(req: Request, res: Response) {
     const result = await Promise.all(
       conversations.map(async (conversation) => {
         let avatarUrl: string | undefined;
+        let avatarExpiresAt: string | undefined;
 
         if (conversation.avatar) {
-          const urls = await getPreviewUrls([conversation.avatar]);
+          const { urls, expiresAt } = await getPreviewUrls([conversation.avatar]);
           avatarUrl = urls[0];
+          avatarExpiresAt = expiresAt;
         }
 
         const currentMember = conversation.members.find(
@@ -106,6 +108,7 @@ export async function getConversations(req: Request, res: Response) {
             ({ userId }) => userId
           ),
           avatarUrl,
+          expiresAt: avatarExpiresAt,
           name: conversation.name,
           unreadCount: currentMember?.unreadCount ?? 0,
           lastActivity,
@@ -115,8 +118,6 @@ export async function getConversations(req: Request, res: Response) {
 
     res.json(result);
   } catch (err) {
-    console.error(err);
-
     res.status(500).json({
       message: "Failed to retrieve conversations",
     });
@@ -128,31 +129,24 @@ export async function createConversation(req: Request, res: Response) {
     const userId = req.userId!;
     const { conversation }: { conversation: CreateConversation } = req.body;
 
-    const members = conversation.members;
+    const members = conversation.members.filter((id) => id !== userId);
 
     if (conversation.type === "Direct") {
-      if (members.length !== 1) {
-        return res.status(400).json({
-          message: "Direct conversation must have exactly two members",
-        });
-      }
+      return res.status(400).json({
+        message: "Direct conversations are created on accepting friend request",
+      });
+    }
 
-      await prisma.friendship.update({
-        where: {
-          userId_friendId: {
-            userId: members[0] as string,
-            friendId: userId,
-          },
-        },
-        data: {
-          status: "Accepted",
-        },
+    if (members.length < 2) {
+      return res.status(400).json({
+        message: "Groups need at least two other members",
       });
     }
 
     const allMemberIds = [userId, ...members];
 
     let avatarUrl: string | undefined;
+    let avatarExpiresAt: string | undefined;
 
     if (conversation.fileId) {
       const file = await prisma.file.findUnique({
@@ -169,8 +163,9 @@ export async function createConversation(req: Request, res: Response) {
         });
       }
 
-      const urls = await getPreviewUrls([file]);
+      const { urls, expiresAt } = await getPreviewUrls([file]);
       avatarUrl = urls[0];
+      avatarExpiresAt = expiresAt;
     }
 
     const friendShips = await prisma.friendship.findMany({
@@ -194,7 +189,7 @@ export async function createConversation(req: Request, res: Response) {
     });
 
     if (!friendShips.length || friendShips.length !== members.length) {
-      return res.status(400).json({message: "Invalid members"});
+      return res.status(400).json({ message: "Invalid members" });
     }
 
     const createdConversation = await prisma.conversation.create({
@@ -213,7 +208,6 @@ export async function createConversation(req: Request, res: Response) {
         id: true,
         type: true,
         name: true,
-        fileId: true,
         members: {
           select: {
             userId: true,
@@ -230,6 +224,7 @@ export async function createConversation(req: Request, res: Response) {
       type: createdConversation.type,
       members: createdConversation.members.map(({ userId }) => userId),
       avatarUrl,
+      expiresAt: avatarExpiresAt,
       name,
       unreadCount: 0,
     };
@@ -249,54 +244,22 @@ export async function createConversation(req: Request, res: Response) {
           type: "AddedToGroup",
           conversationId: createdConversation.id,
         },
-        include: {
-          initiator: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-          conversation: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-        },
       });
-
-      let initiatorAvatarUrl: string | undefined;
-      let conversationAvatarUrl: string | undefined;
-
-      if (notification.initiator.avatar) {
-        initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
-      }
-
-      if (notification.conversation?.avatar) {
-        conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
-      }
 
       sendToUser(memberId, {
         type: "incoming_notification",
         notification: {
           id: notification.id,
           type: notification.type,
+          initiatorId: notification.initiatorId,
+          recipientId: notification.recipientId,
 
-          initiator: {
-            id: notification.initiator.id,
-            name: notification.initiator.name,
-            avatarUrl: initiatorAvatarUrl,
+          conversationId: {
+            id: createdConversation.id,
+            name: createdConversation.name,
+            avatarUrl,
+            expiresAt: avatarExpiresAt,
           },
-
-          ...(notification.conversation && {
-            conversationId: {
-              id: notification.conversation.id,
-              name: notification.conversation.name,
-              avatarUrl: conversationAvatarUrl,
-            },
-          }),
 
           createdAt: notification.createdAt.toISOString(),
         },
@@ -365,6 +328,7 @@ export async function updateConversation(req: Request, res: Response) {
     }
 
     let avatarUrl: string | undefined;
+    let avatarExpiresAt: string | undefined;
     let fileToDelete: File | undefined | null;
 
     if (fileId) {
@@ -381,7 +345,9 @@ export async function updateConversation(req: Request, res: Response) {
           message: "Invalid conversation avatar",
         });
       }
-      avatarUrl = (await getPreviewUrls([file]))[0];
+      const { urls, expiresAt } = await getPreviewUrls([file]);
+      avatarUrl = urls[0];
+      avatarExpiresAt = expiresAt;
 
       if (existingConversation.fileId && existingConversation.fileId !== file.id) {
         fileToDelete = await prisma.file.findUnique({
@@ -415,7 +381,10 @@ export async function updateConversation(req: Request, res: Response) {
     const updatedConversation = {
       id: updated.id,
       ...(name && {name: updated.name}),
-      ...(fileId && {avatarUrl}),
+      ...(fileId && {
+        avatarUrl,
+        expiresAt: avatarExpiresAt,
+      }),
     };
 
     res.json(updatedConversation);
@@ -441,13 +410,6 @@ export async function updateConversation(req: Request, res: Response) {
             conversationId,
           },
           include: {
-            initiator: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
             conversation: {
               select: {
                 id: true,
@@ -458,15 +420,13 @@ export async function updateConversation(req: Request, res: Response) {
           },
         });
 
-        let initiatorAvatarUrl: string | undefined;
         let conversationAvatarUrl: string | undefined;
-
-        if (notification.initiator.avatar) {
-          initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
-        }
+        let conversationAvatarExpiresAt: string | undefined;
 
         if (notification.conversation?.avatar) {
-          conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+          const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
+          conversationAvatarUrl = urls[0];
+          conversationAvatarExpiresAt = expiresAt;
         }
 
         sendToUser(member.userId, {
@@ -474,16 +434,14 @@ export async function updateConversation(req: Request, res: Response) {
           notification: {
             id: notification.id,
             type: notification.type,
-            initiator: {
-              id: notification.initiator.id,
-              name: notification.initiator.name,
-              avatarUrl: initiatorAvatarUrl,
-            },
+            initiatorId: notification.initiatorId,
+            recipientId: notification.recipientId,
             ...(notification.conversation && {
               conversationId: {
                 id: notification.conversation.id,
                 name: notification.conversation.name,
                 avatarUrl: conversationAvatarUrl,
+                expiresAt: conversationAvatarExpiresAt,
               },
             }),
             createdAt: notification.createdAt.toISOString(),
@@ -500,13 +458,6 @@ export async function updateConversation(req: Request, res: Response) {
             conversationId,
           },
           include: {
-            initiator: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
             conversation: {
               select: {
                 id: true,
@@ -517,32 +468,30 @@ export async function updateConversation(req: Request, res: Response) {
           },
         });
 
-        let initiatorAvatarUrl: string | undefined;
+        
         let conversationAvatarUrl: string | undefined;
-
-        if (notification.initiator.avatar) {
-          initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
-        }
+        let conversationAvatarExpiresAt: string | undefined;
 
         if (notification.conversation?.avatar) {
-          conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+          const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
+          conversationAvatarUrl = urls[0];
+          conversationAvatarExpiresAt = expiresAt;
         }
+
 
         sendToUser(member.userId, {
           type: "incoming_notification",
           notification: {
             id: notification.id,
             type: notification.type,
-            initiator: {
-              id: notification.initiator.id,
-              name: notification.initiator.name,
-              avatarUrl: conversationAvatarUrl,
-            },
+            initiatorId: notification.initiatorId,
+            recipientId: notification.recipientId,
             ...(notification.conversation && {
               conversationId: {
                 id: notification.conversation.id,
                 name: notification.conversation.name,
                 avatarUrl: conversationAvatarUrl,
+                expiresAt: conversationAvatarExpiresAt,
               },
             }),
             createdAt: notification.createdAt.toISOString(),
@@ -642,13 +591,6 @@ export async function removeMember(req: Request, res: Response) {
         conversationId,
       },
       include: {
-        initiator: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
         conversation: {
           select: {
             id: true,
@@ -659,32 +601,30 @@ export async function removeMember(req: Request, res: Response) {
       },
     });
 
-    let initiatorAvatarUrl: string | undefined;
-    let conversationAvatarUrl: string | undefined;
 
-    if (notification.initiator.avatar) {
-      initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
-    }
+    let conversationAvatarUrl: string | undefined;
+    let conversationAvatarExpiresAt: string | undefined;
 
     if (notification.conversation?.avatar) {
-      conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+      const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
+      conversationAvatarUrl = urls[0];
+      conversationAvatarExpiresAt = expiresAt;
     }
+
 
     const notificationForClient = {
       id: notification.id,
       type: notification.type,
 
-      initiator: {
-        id: notification.initiator.id,
-        name: notification.initiator.name,
-        avatarUrl: initiatorAvatarUrl,
-      },
+      initiatorId: notification.initiatorId,
+      recipientId: notification.recipientId,
 
       ...(notification.conversation && {
         conversationId: {
           id: notification.conversation.id,
           name: notification.conversation.name,
           avatarUrl: conversationAvatarUrl,
+          expiresAt: conversationAvatarExpiresAt,
         },
       }),
 
@@ -707,14 +647,64 @@ export async function removeMember(req: Request, res: Response) {
       notification: notificationForClient,
     });
 
+    const remainingMemberIds = conversation.members.map((member) => member.userId).filter((id) => id !== memberId);
+
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        status: "Accepted",
+        OR: [
+          {
+            userId: memberId,
+            friendId: {
+              in: remainingMemberIds,
+            },
+          },
+          {
+            friendId: memberId,
+            userId: {
+              in: remainingMemberIds,
+            },
+          },
+        ],
+      },
+      select: {
+        userId: true,
+        friendId: true,
+      },
+    });
+
+    const friendIds = friendships.map((friendship) =>
+      friendship.userId === memberId
+        ? friendship.friendId
+        : friendship.userId
+    );
+
+    for (const otherMemberId of remainingMemberIds) {
+      if (friendIds.includes(otherMemberId)) continue;
+
+      sendToUser(memberId, {
+        type: "remove_user",
+        userId: otherMemberId,
+      });
+
+      sendToUser(otherMemberId, {
+        type: "remove_user",
+        userId: memberId,
+      });
+    }
+
     for (const member of conversation.members) {
-      if (member.userId === memberId) return;
+      if (member.userId === memberId) continue;
 
       sendToUser(member.userId, {
         type: "incoming_member_removal",
         conversationId,
         memberId,
-        userId,
+      });
+
+      sendToUser(member.userId, {
+        type: "incoming_notification",
+        notification: notificationForClient,
       });
     }
   } catch (err) {

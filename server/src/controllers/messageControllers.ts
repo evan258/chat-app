@@ -46,13 +46,14 @@ export async function getMessages (req: Request, res: Response) {
 
     const result = await Promise.all(
       messages.map(async (message) => {
-        const previewUrls = await getPreviewUrls(message.files);
+        const {urls, expiresAt} = await getPreviewUrls(message.files);
         return {
           id: message.id,
           conversationId: message.conversationId,
           senderId: message.senderId,
           createdAt: message.createdAt.toISOString(),
-          previewUrls,
+          previewUrls: urls,
+          expiresAt,
           text: message.text,
           unsent: message.unsent,
           status: "sent",
@@ -109,13 +110,14 @@ export async function getOlderMessages (req: Request, res: Response) {
 
     const result = await Promise.all(
       messages.map(async (message) => {
-        const previewUrls = await getPreviewUrls(message.files);
+        const {urls, expiresAt} = await getPreviewUrls(message.files);
         return {
           id: message.id,
           conversationId: message.conversationId,
           senderId: message.senderId,
           createdAt: message.createdAt.toISOString(),
-          previewUrls,
+          previewUrls: urls,
+          expiresAt,
           text: message.text,
           unsent: message.unsent,
           status: "sent",

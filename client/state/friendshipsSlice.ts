@@ -1,8 +1,16 @@
 import { Friendship, FriendshipStatus } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+interface FriendshipExtended extends Friendship{
+  user: {
+    id: string,
+    name: string,
+    avatarUrl?: string,
+    expiresAt?: string,
+  }
+}
 interface FriendshipsState {
-  friendships: Friendship[],
+  friendships: FriendshipExtended[],
 }
 
 const initialState: FriendshipsState = {
@@ -13,11 +21,11 @@ const friendshipsSlice = createSlice({
   name: "friendships",
   initialState,
   reducers: {
-    setFriendships: (state, action: PayloadAction<Friendship[]>) => {
+    setFriendships: (state, action: PayloadAction<FriendshipExtended[]>) => {
       state.friendships = action.payload;
     },
 
-    addFriendship: (state, action: PayloadAction<Friendship>) => {
+    addFriendship: (state, action: PayloadAction<FriendshipExtended>) => {
       state.friendships = [action.payload, ...state.friendships];
     },
 

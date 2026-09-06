@@ -14,13 +14,6 @@ export async function getNotifications(req: Request, res: Response) {
         id: "desc",
       },
       include: {
-        initiator: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
         conversation: {
           select: {
             id: true,
@@ -42,30 +35,26 @@ export async function getNotifications(req: Request, res: Response) {
 
     const notificationsForClient = await Promise.all(
       notifications.map(async (notification) => {
-        let initiatorAvatarUrl: string | undefined;
         let conversationAvatarUrl: string | undefined;
-
-        if (notification.initiator.avatar) {
-          initiatorAvatarUrl = (await getPreviewUrls([notification.initiator.avatar]))[0];
-        }
+        let conversationAvatarExpiresAt: string | undefined;
 
         if (notification.conversation?.avatar) {
-          conversationAvatarUrl = (await getPreviewUrls([notification.conversation.avatar]))[0];
+          const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
+          conversationAvatarUrl = urls[0];
+          conversationAvatarExpiresAt = expiresAt;
         }
 
         return {
           id: notification.id,
           type: notification.type,
-          initiator: {
-            id: notification.initiator.id,
-            name: notification.initiator.name,
-            avatarUrl: initiatorAvatarUrl,
-          },
+          initiatorId: notification.initiatorId,
+          recipientId: notification.recipientId,
           ...(notification.conversation && {
             conversationId: {
               id: notification.conversation.id,
               name: notification.conversation.name,
               avatarUrl: conversationAvatarUrl,
+              expiresAt: conversationAvatarExpiresAt,
             },
           }),
 
@@ -121,7 +110,7 @@ export async function removeNotification(req: Request, res: Response) {
     });
 
     res.json({
-      notificationId,
+      message: "Notification removed successfully"
     });
   } catch (err) {
     res.status(500).json({

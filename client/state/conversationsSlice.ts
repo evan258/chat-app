@@ -27,6 +27,7 @@ export interface Conversation {
   type: ConversationType,
   members: string[],
   avatarUrl?: string,
+  expiresAt?: string,
   name?: string,
   unreadCount: number,
   lastActivity?: LastActivity;
