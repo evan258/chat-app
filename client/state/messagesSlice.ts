@@ -19,6 +19,7 @@ interface MessagesState {
   typingByConversation: Record<number, Record<number, boolean>>,
   lastReadByConversation: Record<number, Record<number, number>>,
   removingMessagesByConversation: Record<number, number[]>,
+  hasMoreByConversation: Record<number, boolean>,
 }
 
 const initialState: MessagesState = {
@@ -26,6 +27,7 @@ const initialState: MessagesState = {
   typingByConversation: {},
   lastReadByConversation: {},
   removingMessagesByConversation: {},
+  hasMoreByConversation: {},
 }
 
 const messagesSlice = createSlice({
@@ -78,6 +80,9 @@ const messagesSlice = createSlice({
         text: null,
         previewUrls: [],
       };
+    },
+    setHasMore: (state, action: PayloadAction<{conversationId: number, hasMore: boolean}>) => {
+      state.hasMoreByConversation[action.payload.conversationId] = action.payload.hasMore;
     },
     prependMessages: (state, action: PayloadAction<{conversationId: number, messages: Message[]}>) => {
       const currentMessages = state.messagesByConversation[action.payload.conversationId] || [];
@@ -139,6 +144,7 @@ const messagesSlice = createSlice({
 export const {
   setMessages,
   prependMessages,
+  setHasMore,
   addOptimisticMessage,
   confirmMessage,
   addIncomingMessage,

@@ -2,6 +2,8 @@
 
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
+import { useInitialData } from "@/hooks/useInitialData";
+import { useOpenConversation } from "@/hooks/useOpenConversation";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -16,6 +18,9 @@ export default function Home() {
       router.push("/login");
     }
   }, [sessionPending, session, router]);
+
+  useInitialData(session?.user.id);
+  useOpenConversation();
 
   const handleSignOut = async () => {
     const {error} = await authClient.signOut();

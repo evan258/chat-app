@@ -1,7 +1,7 @@
 import { Friendship, FriendshipStatus } from "../generated/prisma";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-interface FriendshipExtended extends Friendship{
+export interface FriendshipExtended extends Friendship{
   user: {
     id: string,
     name: string,

@@ -392,7 +392,7 @@ export async function acceptFriendRequest(req: Request, res: Response) {
           id: notification.conversation.id,
           name: notification.conversation.name,
           avatarUrl: conversationAvatarUrl,
-          avatarExpiresAt: conversationAvatarExpiresAt,
+          expiresAt: conversationAvatarExpiresAt,
         },
       }),
 
@@ -430,7 +430,7 @@ export async function acceptFriendRequest(req: Request, res: Response) {
       id: friend.id,
       name: friend.name,
       avatarUrl: friendAvatarUrl,
-      avatarExpiresAt: friendAvatarExpiresAt,
+      expiresAt: friendAvatarExpiresAt,
     };
 
     res.status(201).json({
@@ -458,7 +458,7 @@ export async function acceptFriendRequest(req: Request, res: Response) {
         id: notification.initiator.id,
         name: notification.initiator.name,
         avatarUrl: initiatorAvatarUrl,
-        avatarExpiresAt: initiatorAvatarExpiresAt,
+        expiresAt: initiatorAvatarExpiresAt,
       },
     });
   } catch (err) {
@@ -563,14 +563,14 @@ export async function addFriendRequest(req: Request, res: Response) {
       id: friend.id,
       name: friend.name,
       avatarUrl: friendAvatarUrl,
-      avatarExpiresAt: friendAvatarExpiresAt,
+      expiresAt: friendAvatarExpiresAt,
     };
 
     const initiatorForClient = {
       id: notification.initiator.id,
       name: notification.initiator.name,
       avatarUrl: initiatorAvatarUrl,
-      avatarExpiresAt: initiatorAvatarExpiresAt,
+      expiresAt: initiatorAvatarExpiresAt,
     };
 
     const notificationForClient = {
@@ -682,7 +682,7 @@ export async function getFriendships(req: Request, res: Response) {
             id: user.id,
             name: user.name,
             avatarUrl,
-            avatarExpiresAt,
+            expiresAt: avatarExpiresAt,
           },
         };
       })

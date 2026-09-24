@@ -1,23 +1,112 @@
 import { addIncomingMessage, confirmMessage, deleteRemovingMessage, markMessageAsFailed, markMessageAsUnsent, removeMessage, setLastRead, setTyping, updateMessageReactions } from "@/state/messagesSlice";
 import { store } from "@/state/store";
 import { toast } from "sonner";
-import { authClient } from "./auth-client";
-import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity } from "@/state/conversationsSlice";
+import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity, updateSeenConversation } from "@/state/conversationsSlice";
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
 import { addNotification } from "@/state/notificationsSlice";
+import { addUser, removeUser } from "@/state/usersSlice";
+import { clearToken, getToken } from "./api";
+import { loadInitialData, loadMessages } from "./loaders";
 
 let socket: WebSocket | null = null;
+let connecting: Promise<void> | null = null;
+let shouldReconnect = false;
+let hasConnectedBefore = false;
+let reconnectAttempts = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-export async function connectSocket () {
-  if (socket) return;
+const MAX_RECONNECT_DELAY = 30 * 1000;
 
-  const { data, error } = await authClient.token();
-  if (error || !data?.token) return;
+export function connectSocket () {
+  shouldReconnect = true;
+  if (socket || connecting) return;
 
-  const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(data.token)}`;
-  socket = new WebSocket(wsUrl);
+  connecting = openSocket().finally(() => {
+    connecting = null;
+  });
+}
 
-  socket.onmessage = (event) => {
+export function disconnectSocket () {
+  shouldReconnect = false;
+  hasConnectedBefore = false;
+  reconnectAttempts = 0;
+
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
+  const current = socket;
+  socket = null;
+  current?.close();
+}
+
+export function sendSocketMessage (data: object) {
+  if (socket?.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(data));
+  return true;
+}
+
+export function markConversationRead (conversationId: number) {
+  store.dispatch(updateSeenConversation({ conversationId }));
+  sendSocketMessage({
+    type: "conversation_read",
+    conversationId,
+  });
+}
+
+function scheduleReconnect () {
+  if (!shouldReconnect || reconnectTimer) return;
+
+  const delay = Math.min(1000 * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY);
+  reconnectAttempts++;
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectSocket();
+  }, delay);
+}
+
+// events may have been missed while offline, so refetch what is in the store
+async function resync () {
+  await loadInitialData();
+
+  const loadedIds = Object.keys(store.getState().messages.hasMoreByConversation).map(Number);
+  await Promise.allSettled(loadedIds.map((id) => loadMessages(id)));
+
+  const { conversations, openConversationId } = store.getState().conversations;
+  const openConversation = conversations.find((conv) => conv.id === openConversationId);
+  if (openConversation && openConversation.unreadCount > 0) {
+    markConversationRead(openConversation.id);
+  }
+}
+
+async function openSocket () {
+  let token: string;
+  try {
+    token = await getToken();
+  } catch (err) {
+    console.log(err);
+    scheduleReconnect();
+    return;
+  }
+
+  // disconnectSocket() may have been called while waiting for the token
+  if (!shouldReconnect) return;
+
+  const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(token)}`;
+  const ws = new WebSocket(wsUrl);
+  socket = ws;
+
+  ws.onopen = () => {
+    reconnectAttempts = 0;
+    if (hasConnectedBefore) {
+      resync().catch((err) => console.log(err));
+    }
+    hasConnectedBefore = true;
+  };
+
+  ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
     switch (data.type) {
@@ -39,10 +128,10 @@ export async function connectSocket () {
           },
         }));
 
-        socket?.send(JSON.stringify({
+        sendSocketMessage({
           type: "conversation_read",
           conversationId: data.message.conversationId,
-        }));
+        });
         break;
 
       case "message_sent_failed":
@@ -69,12 +158,12 @@ export async function connectSocket () {
 
         const state = store.getState();
         if (state.conversations.openConversationId !== data.message.conversationId) {
-          store.dispatch(newMessageInConversation(data.message.conversationId));
+          store.dispatch(newMessageInConversation({conversationId: data.message.conversationId}));
         } else {
-          socket?.send(JSON.stringify({
+          sendSocketMessage({
             type: "conversation_read",
             conversationId: data.message.conversationId,
-          }));
+          });
         }
         break;
 
@@ -223,7 +312,7 @@ export async function connectSocket () {
         break;
 
       case "incoming_friend_request":
-        store.dispatch(addFriendship(data.friendShip));
+        store.dispatch(addFriendship(data.friendship));
         break;
 
       case "friend_request_accepted":
@@ -247,16 +336,30 @@ export async function connectSocket () {
         store.dispatch(addNotification(data.notification));
         break;
 
+      case "add_user":
+        store.dispatch(addUser(data.user));
+        break;
+
+      case "remove_user":
+        store.dispatch(removeUser(data.userId));
+        break;
+
       default:
         break;
     }
   }
 
-  socket.onerror = (err) => {
+  ws.onerror = (err) => {
     console.log(err);
-  }
+  };
 
-  socket.onclose = () => {
+  ws.onclose = () => {
+    // ignore sockets that were already replaced or closed on purpose
+    if (socket !== ws) return;
     socket = null;
-  }
+
+    // the upgrade may have been rejected because the token expired
+    clearToken();
+    scheduleReconnect();
+  };
 }

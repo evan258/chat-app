@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { getPreviewUrls } from "../lib/utils.js";
 
+const MESSAGES_PAGE_SIZE = 40;
+
 export async function getMessages (req: Request, res: Response) {
   try {
     const {conversationId} = req.params;
@@ -30,6 +32,7 @@ export async function getMessages (req: Request, res: Response) {
           },
         }
       },
+      take: -MESSAGES_PAGE_SIZE,
       orderBy: {
         id: "asc",
       },
@@ -88,12 +91,19 @@ export async function getOlderMessages (req: Request, res: Response) {
     const messages = await prisma.message.findMany({
       where: {
         conversationId: Number(conversationId),
+        NOT: {
+          deletedBy: {
+            some: {
+              userId: req.userId!,
+            },
+          },
+        },
       },
       skip: 1,
       cursor: {
         id: Number(messageId),
       },
-      take: -40,
+      take: -MESSAGES_PAGE_SIZE,
       orderBy: {
         id: "asc",
       },
