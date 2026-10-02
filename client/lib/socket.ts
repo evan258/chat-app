@@ -18,6 +18,10 @@ export async function connectSocket () {
   const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(data.token)}`;
   socket = new WebSocket(wsUrl);
 
+  socket.onopen = () => {
+    socket?.send(JSON.stringify({type: "active_users_query"}));
+  }
+
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
@@ -70,7 +74,7 @@ export async function connectSocket () {
 
         const state = store.getState();
         if (state.conversations.openConversationId !== data.message.conversationId) {
-          store.dispatch(newMessageInConversation(data.message.conversationId));
+          store.dispatch(newMessageInConversation({conversationId: data.message.conversationId}));
         } else {
           socket?.send(JSON.stringify({
             type: "conversation_read",
@@ -224,7 +228,7 @@ export async function connectSocket () {
         break;
 
       case "incoming_friend_request":
-        store.dispatch(addFriendship(data.friendShip));
+        store.dispatch(addFriendship(data.friendship));
         break;
 
       case "friend_request_accepted":

@@ -5,6 +5,7 @@ import conversationsReducer from "./conversationsSlice";
 import messagesReducer from "./messagesSlice";
 import friendshipsReducer from "./friendshipsSlice";
 import notificationsReducer from "./notificationsSlice";
+import usersReducer from "./usersSlice";
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     messages: messagesReducer,
     friendships: friendshipsReducer,
     notifications: notificationsReducer,
+    users: usersReducer,
   },
 });
 

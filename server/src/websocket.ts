@@ -11,9 +11,33 @@ import { handleActiveStatus } from "./handlers/handleActiveStatus.js";
 export const clients = new Map<string, WebSocket>();
 
 export function setupWebSocket (wss: WebSocketServer) {
+  const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (!ws.isAlive) {
+        ws.terminate();
+        return;
+      }
+
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
+  wss.on("close", () => {
+    clearInterval(interval);
+  });
+
   wss.on("connection", async (ws, request) => {
     const userId = ws.userId;
+
+    const oldSocket = clients.get(userId);
+    if (oldSocket) oldSocket.terminate();
     clients.set(userId, ws);
+
+    ws.isAlive = true;
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
 
     await handleActiveStatus(userId, "user_active");
 
