@@ -269,6 +269,75 @@ export async function rejectFriendRequest(req: Request, res: Response) {
   }
 }
 
+export async function cancelFriendRequest(req: Request, res: Response) {
+  try {
+    const userId = req.userId!;
+    const friendId = req.params.userId as string;
+
+    const friendship = await prisma.friendship.findUnique({
+      where: {
+        userId_friendId: {
+          userId,
+          friendId,
+        },
+      },
+    });
+
+    if (!friendship) {
+      return res.status(404).json({message: "Friend request not found"});
+    }
+
+    if (friendship.status !== "Pending") {
+      return res.status(400).json({message: "Friend request is not pending"});
+    }
+
+    // the notification the receiver got when the request was sent
+    const notification = await prisma.notification.findFirst({
+      where: {
+        initiatorId: userId,
+        recipientId: friendId,
+        type: "FriendRequestSent",
+      },
+      orderBy: {
+        id: "desc",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.friendship.delete({
+        where: {
+          id: friendship.id,
+        },
+      });
+
+      if (notification) {
+        await tx.notification.delete({
+          where: {
+            id: notification.id,
+          },
+        });
+      }
+    });
+
+    res.json({
+      friendId,
+      userId,
+    });
+
+    sendToUser(friendId, {
+      type: "friend_request_cancelled",
+      friendId,
+      userId,
+      notificationId: notification?.id,
+    });
+  } catch (err) {
+    res.status(500).json({message: "Failed to cancel friend request"});
+  }
+}
+
 export async function acceptFriendRequest(req: Request, res: Response) {
   try {
     const userId = req.userId!;

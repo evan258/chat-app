@@ -39,8 +39,6 @@ export function setupWebSocket (wss: WebSocketServer) {
       ws.isAlive = true;
     });
 
-    await handleActiveStatus(userId, "user_active");
-
     ws.on("message", async (data) => {
       const message = JSON.parse(data.toString());
 
@@ -84,5 +82,7 @@ export function setupWebSocket (wss: WebSocketServer) {
 
       await handleActiveStatus(userId, "user_inactive");
     })
+
+    await handleActiveStatus(userId, "user_active");
   });
 }

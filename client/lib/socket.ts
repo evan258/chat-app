@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { authClient } from "./auth-client";
 import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity } from "@/state/conversationsSlice";
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
-import { addNotification } from "@/state/notificationsSlice";
+import { addNotification, removeNotification } from "@/state/notificationsSlice";
 import { addUser, removeUser, setUserActive, setUserInactive } from "@/state/usersSlice";
 
 let socket: WebSocket | null = null;
@@ -246,6 +246,17 @@ export async function connectSocket () {
           userId: data.userId,
           friendId: data.friendId,
         }));
+        break;
+
+      case "friend_request_cancelled":
+        store.dispatch(removeFriendship({
+          userId: data.userId,
+          friendId: data.friendId,
+        }));
+
+        if (data.notificationId) {
+          store.dispatch(removeNotification(data.notificationId));
+        }
         break;
 
       case "incoming_notification":

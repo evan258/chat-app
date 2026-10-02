@@ -5,6 +5,10 @@
 
 @theme {
   --font-roboto: var(--font-roboto);
+  --color-brand: #1565C0;
+  --color-brand-dark: #0D47A1;
+  --color-brand-accent: #40C4FF;
+  --color-brand-light: #EAF5FF;
 }
 
 @layer base {
