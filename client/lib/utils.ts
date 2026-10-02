@@ -11,7 +11,7 @@ export async function markConversationAsRead(conversationId: number) {
     const { data, error } = await authClient.token();
     if (error || !data?.token) return;
     
-    const response = await fetch(`${process.env.API_BASE_URL}/conversations/${conversationId}/read`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/conversations/${conversationId}/read`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${data.token}`,
