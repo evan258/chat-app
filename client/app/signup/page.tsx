@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import LoadOlderMessages from "@/components/LoadOlderMessages";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import Loading from "@/components/Loading";
+import AuthShell from "@/components/AuthShell";
 
 const SignupPage = () => {
   const { data: session, isPending: sessionPending } = authClient.useSession();
@@ -104,164 +105,162 @@ const SignupPage = () => {
   if (sessionPending) return <Loading />;
 
   return (
-    <div className="min-h-screen w-screen flex justify-center items-center overflow-y-auto">
-      <div className="sm:max-w-150 w-full m-2 px-8 md:px-10 flex flex-col min-h-max py-10 rounded-xl border border-gray-50 shadow-lg">
-
-        <Image
-          src="/logo-dark.svg"
-          alt="logo"
-          width={150}
-          height={50}
-          className="mb-8"
-        />
-
-        {signupComplete ? (
-          <div className="flex flex-col items-center text-center py-8">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
-              <Mail className="size-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3">
-              Check your email
-            </h3>
-            <p className="text-gray-500 text-sm leading-6 max-w-md">
-              We sent a verification link to
-            </p>
-            <p className="font-medium text-gray-900 mt-1 break-all">
-              {getValues("email")}
-            </p>
-            <p className="text-sm text-gray-500 max-w-sm">
-              We sent a verification link to your email address.
-              Click the link to verify your account and continue.
-            </p>
-            <div className="relative w-full mt-8">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleResendVerification}
-                className="w-full py-5"
-              >
-                Resend verification email
-              </Button>
-              {resendLoading && (
-                <LoadOlderMessages isComponent={true} />
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-4">
-              You can close this page after receiving the email.
-            </p>
+    <AuthShell>
+      {signupComplete ? (
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="mb-6 flex size-16 items-center justify-center rounded-full bg-brand-light">
+            <Mail className="size-8 text-brand" />
           </div>
-        ) : (
-          <>
-            <h3 className="mb-6">Create your account</h3>
-            <form
-              onSubmit={handleSubmit(handleSignup)}
-              className="space-y-2"
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">
+            Check your email
+          </h3>
+          <p className="text-gray-500 text-sm leading-6 max-w-md">
+            We sent a verification link to
+          </p>
+          <p className="font-medium text-gray-900 mt-1 break-all">
+            {getValues("email")}
+          </p>
+          <p className="text-sm text-gray-500 max-w-sm mt-3">
+            We sent a verification link to your email address.
+            Click the link to verify your account and continue.
+          </p>
+          <div className="relative w-full mt-8 rounded-xl overflow-hidden">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleResendVerification}
+              className="w-full h-12 rounded-xl bg-white border-gray-200 text-gray-700 text-base font-medium hover:bg-gray-50"
             >
-              <Label className="text-gray-500">
-                Name
-              </Label>
+              Resend verification email
+            </Button>
+            {resendLoading && (
+              <LoadOlderMessages isComponent={true} />
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-4">
+            You can close this page after receiving the email.
+          </p>
+        </div>
+      ) : (
+        <>
+          <h3 className="text-2xl font-bold text-gray-900">Create your account</h3>
+          <p className="text-gray-500 text-sm mt-1 mb-8">Join E-Chat and start talking with your friends</p>
+
+          <form
+            onSubmit={handleSubmit(handleSignup)}
+            className="space-y-2"
+          >
+            <Label className="text-gray-600">
+              Name
+            </Label>
+            <Input
+              {...register("name")}
+              placeholder="Enter your name"
+              className="h-12 px-4 rounded-xl bg-gray-50 border-gray-200 text-gray-800 focus-visible:border-brand focus-visible:ring-brand/20"
+            />
+
+            {errors.name && (
+              <p className="text-red-500 text-sm mb-0.5">
+                {errors.name.message}
+              </p>
+            )}
+
+            <Label className="text-gray-600 mt-3">
+              Email
+            </Label>
+            <Input
+              {...register("email")}
+              placeholder="Enter your email address"
+              className="h-12 px-4 rounded-xl bg-gray-50 border-gray-200 text-gray-800 focus-visible:border-brand focus-visible:ring-brand/20"
+            />
+
+            {errors.email && (
+              <p className="text-red-500 text-sm mb-0.5">
+                {errors.email.message}
+              </p>
+            )}
+
+            <Label className="text-gray-600 mt-3">
+              Password
+            </Label>
+
+            <div className="relative">
               <Input
-                {...register("name")}
-                placeholder="Enter your name"
-                className="py-5! px-3! rounded-md text-gray-800"
+                type={showPassword ? "text" : "password"}
+                {...register("password")}
+                placeholder="Create a password"
+                className="h-12 px-4 rounded-xl bg-gray-50 border-gray-200 text-gray-800 focus-visible:border-brand focus-visible:ring-brand/20"
               />
 
-              {errors.name && (
-                <p className="text-red-500 text-sm mb-0.5">
-                  {errors.name.message}
-                </p>
-              )}
-
-              <Label className="text-gray-500 mt-2">
-                Email
-              </Label>
-              <Input
-                {...register("email")}
-                placeholder="Enter your email address"
-                className="py-5! px-3! rounded-md text-gray-800"
-              />
-
-              {errors.email && (
-                <p className="text-red-500 text-sm mb-0.5">
-                  {errors.email.message}
-                </p>
-              )}
-
-              <Label className="text-gray-500 mt-2">
-                Password
-              </Label>
-
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  {...register("password")}
-                  placeholder="Create a password"
-                  className="py-5! px-3! rounded-md text-gray-800"
-                />
-
-                <Button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="hover:bg-transparent bg-transparent text-black rounded-xl absolute top-1/2 -translate-y-1/2 right-3 z-10"
-                >
-                  {showPassword ? <Eye /> : <EyeOff />}
-                </Button>
-              </div>
-
-              {errors.password && (
-                <p className="text-red-500 text-sm mb-0.5">
-                  {errors.password.message}
-                </p>
-              )}
-
-              <div className="w-full relative">
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-5 mt-4 mb-4 hover:bg-blue-800"
-                >
-                  Sign up
-                </Button>
-
-                {emailLoading && (
-                  <LoadOlderMessages isComponent={true} />
-                )}
-              </div>
-            </form>
-
-            <div className="w-full relative">
               <Button
                 type="button"
-                onClick={handleGoogleSignup}
-                className="w-full bg-black font-normal py-5 my-4"
+                onClick={() => setShowPassword(!showPassword)}
+                className="hover:bg-transparent bg-transparent text-gray-500 rounded-xl absolute top-1/2 -translate-y-1/2 right-2 z-10"
               >
-                <Image
-                  src={google}
-                  alt="google-icon"
-                  width={20}
-                  height={20}
-                />
+                {showPassword ? <Eye /> : <EyeOff />}
+              </Button>
+            </div>
 
-                Continue with Google
+            {errors.password && (
+              <p className="text-red-500 text-sm mb-0.5">
+                {errors.password.message}
+              </p>
+            )}
+
+            <div className="w-full relative rounded-xl overflow-hidden pt-3">
+              <Button
+                type="submit"
+                className="w-full h-12 rounded-xl bg-brand text-white text-base font-medium shadow-md shadow-brand/30 hover:bg-brand-dark"
+              >
+                Sign up
               </Button>
 
-              {googleLoading && (
+              {emailLoading && (
                 <LoadOlderMessages isComponent={true} />
               )}
             </div>
+          </form>
 
-            <span className="text-center">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="text-blue-500 font-medium underline"
-              >
-                Sign in
-              </Link>
-            </span>
-            </>
-          )}
-      </div>
-    </div>
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-gray-400 text-sm">or</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <div className="w-full relative rounded-xl overflow-hidden">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogleSignup}
+              className="w-full h-12 rounded-xl bg-white border-gray-200 text-gray-700 text-base font-medium hover:bg-gray-50"
+            >
+              <Image
+                src={google}
+                alt="google-icon"
+                width={20}
+                height={20}
+              />
+
+              Continue with Google
+            </Button>
+
+            {googleLoading && (
+              <LoadOlderMessages isComponent={true} />
+            )}
+          </div>
+
+          <span className="text-center text-gray-500 mt-8">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-brand font-medium hover:underline"
+            >
+              Sign in
+            </Link>
+          </span>
+        </>
+      )}
+    </AuthShell>
   );
 };
 

@@ -11,6 +11,7 @@ import fileRoutes from "./routes/fileRoutes.js"
 import conversationRoutes from "./routes/conversationRoutes.js"
 import friendshipRoutes from "./routes/friendshipRoutes.js"
 import notificationRoutes from "./routes/notificationRoutes.js"
+import userRoutes from "./routes/userRoutes.js"
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/files", authMiddleware, fileRoutes);
 app.use("/conversations", authMiddleware, conversationRoutes);
 app.use("/friendships", authMiddleware, friendshipRoutes);
 app.use("/notifications", authMiddleware, notificationRoutes);
+app.use("/users", authMiddleware, userRoutes);
 
 const server = createServer(app);
 
