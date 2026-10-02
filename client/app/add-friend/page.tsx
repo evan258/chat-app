@@ -8,14 +8,13 @@ import { authClient } from "@/lib/auth-client";
 import Loading from "@/components/Loading";
 import PageHeader from "@/components/PageHeader";
 import UserAvatar from "@/components/UserAvatar";
-import FriendshipButton, { FriendshipStatus } from "@/components/FriendshipButton";
+import FriendshipButton from "@/components/FriendshipButton";
 
 interface SearchedUser {
   id: string,
   name: string,
   avatarUrl?: string,
   expiresAt?: string,
-  friendshipStatus: FriendshipStatus,
 }
 
 const AddFriendPage = () => {
@@ -81,10 +80,6 @@ const AddFriendPage = () => {
     }
   }
 
-  const handleStatusChange = (userId: string, status: FriendshipStatus) => {
-    setUsers(users.map((user) => user.id === userId ? {...user, friendshipStatus: status} : user));
-  }
-
   if (sessionPending) return <Loading />;
 
   return (
@@ -119,12 +114,7 @@ const AddFriendPage = () => {
           <div key={user.id} className="flex items-center gap-3 py-3">
             <UserAvatar name={user.name} src={user.avatarUrl} />
             <span className="flex-1 min-w-0 truncate font-medium text-gray-900">{user.name}</span>
-            <FriendshipButton
-              userId={user.id}
-              status={user.friendshipStatus}
-              onStatusChange={(status) => handleStatusChange(user.id, status)}
-              className="h-9 px-4"
-            />
+            <FriendshipButton userId={user.id} className="h-9 px-4" />
           </div>
         ))}
       </div>

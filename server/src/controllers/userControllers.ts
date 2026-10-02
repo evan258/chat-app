@@ -2,24 +2,6 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { getPreviewUrls } from "../lib/utils.js";
 
-type FriendshipStatus = "None" | "Friends" | "Sent" | "Received";
-
-function getFriendshipStatus(
-  userId: string,
-  friendships: {userId: string, friendId: string, status: "Pending" | "Accepted"}[],
-  otherUserId: string,
-): FriendshipStatus {
-  const friendship = friendships.find((friendship) =>
-    (friendship.userId === userId && friendship.friendId === otherUserId) ||
-    (friendship.userId === otherUserId && friendship.friendId === userId)
-  );
-
-  if (!friendship) return "None";
-  if (friendship.status === "Accepted") return "Friends";
-  if (friendship.userId === userId) return "Sent";
-  return "Received";
-}
-
 export async function searchUsers(req: Request, res: Response) {
   try {
     const userId = req.userId!;
@@ -51,32 +33,6 @@ export async function searchUsers(req: Request, res: Response) {
       take: 20,
     });
 
-    const userIds = users.map((user) => user.id);
-
-    const friendships = await prisma.friendship.findMany({
-      where: {
-        OR: [
-          {
-            userId,
-            friendId: {
-              in: userIds,
-            },
-          },
-          {
-            userId: {
-              in: userIds,
-            },
-            friendId: userId,
-          },
-        ],
-      },
-      select: {
-        userId: true,
-        friendId: true,
-        status: true,
-      },
-    });
-
     const result = await Promise.all(
       users.map(async (user) => {
         let avatarUrl: string | undefined;
@@ -93,7 +49,6 @@ export async function searchUsers(req: Request, res: Response) {
           name: user.name,
           avatarUrl,
           expiresAt: avatarExpiresAt,
-          friendshipStatus: getFriendshipStatus(userId, friendships, user.id),
         };
       })
     );
@@ -107,12 +62,11 @@ export async function searchUsers(req: Request, res: Response) {
 
 export async function getUser(req: Request, res: Response) {
   try {
-    const userId = req.userId!;
-    const otherUserId = req.params.userId as string;
+    const userId = req.params.userId as string;
 
     const user = await prisma.user.findUnique({
       where: {
-        id: otherUserId,
+        id: userId,
       },
       select: {
         id: true,
@@ -125,26 +79,6 @@ export async function getUser(req: Request, res: Response) {
     if (!user) {
       return res.status(404).json({message: "User not found"});
     }
-
-    const friendships = await prisma.friendship.findMany({
-      where: {
-        OR: [
-          {
-            userId,
-            friendId: otherUserId,
-          },
-          {
-            userId: otherUserId,
-            friendId: userId,
-          },
-        ],
-      },
-      select: {
-        userId: true,
-        friendId: true,
-        status: true,
-      },
-    });
 
     let avatarUrl: string | undefined;
     let avatarExpiresAt: string | undefined;
@@ -161,7 +95,6 @@ export async function getUser(req: Request, res: Response) {
       email: user.email,
       avatarUrl,
       expiresAt: avatarExpiresAt,
-      friendshipStatus: getFriendshipStatus(userId, friendships, otherUserId),
     });
   } catch (err) {
     console.log(err);

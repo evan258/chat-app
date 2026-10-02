@@ -36,11 +36,13 @@ export interface Conversation {
 interface ConversationsState {
   conversations: Conversation[],
   openConversationId: null | number,
+  loaded: boolean,
 }
 
 const initialState: ConversationsState = {
   conversations: [],
   openConversationId: null,
+  loaded: false,
 }
 
 const conversationsSlice = createSlice({
@@ -49,6 +51,9 @@ const conversationsSlice = createSlice({
   reducers: {
     setConversations: (state, action: PayloadAction<Conversation[]>) => {
       state.conversations = action.payload;
+    },
+    setConversationsLoaded: (state) => {
+      state.loaded = true;
     },
     setOpenConversationId: (state, action: PayloadAction<number | null>) => {
       state.openConversationId = action.payload;
@@ -108,6 +113,7 @@ const conversationsSlice = createSlice({
 
 export const {
   setConversations,
+  setConversationsLoaded,
   setOpenConversationId,
   newMessageInConversation,
   removeConversation,

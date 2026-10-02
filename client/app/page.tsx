@@ -3,14 +3,10 @@
 import ConversationItem from "@/components/ConversationItem";
 import Loading from "@/components/Loading";
 import { authClient } from "@/lib/auth-client";
-import { connectSocket } from "@/lib/socket";
 import { getConversationInfo } from "@/lib/utils";
-import { setConversations, setOpenConversationId } from "@/state/conversationsSlice";
-import { FriendshipExtended, setFriendships } from "@/state/friendshipsSlice";
-import { setLastReadNotificationId, setNotifications } from "@/state/notificationsSlice";
+import { setOpenConversationId } from "@/state/conversationsSlice";
 import { useAppDispatch, useAppSelector } from "@/state/store";
-import { setUsers } from "@/state/usersSlice";
-import { LogOut, MessageCircle, Search, UserPlus, X } from "lucide-react";
+import { LogOut, MessageCircle, Search, UserPlus, Users, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,7 +21,8 @@ export default function Home() {
   const dispatch = useAppDispatch();
   const conversations = useAppSelector((state) => state.conversations.conversations);
   const usersById = useAppSelector((state) => state.users.byId);
-  const [loadingChats, setLoadingChats] = useState(true);
+  const loaded = useAppSelector((state) => state.conversations.loaded);
+  const friendships = useAppSelector((state) => state.friendships.friendships);
   const [filter, setFilter] = useState<typeof filters[number]>("All");
   const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState("");
@@ -35,49 +32,6 @@ export default function Home() {
       router.push("/login");
     }
   }, [sessionPending, session, router]);
-
-  useEffect(() => {
-    if (!session) return;
-
-    connectSocket();
-
-    const fetchInitialData = async () => {
-      try {
-        const { data, error } = await authClient.token();
-        if (error || !data?.token) return;
-
-        const headers = { Authorization: `Bearer ${data.token}` };
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-        const [conversationsRes, friendshipsRes, notificationsRes] = await Promise.all([
-          fetch(`${baseUrl}/conversations`, { headers }),
-          fetch(`${baseUrl}/friendships`, { headers }),
-          fetch(`${baseUrl}/notifications`, { headers }),
-        ]);
-
-        if (!conversationsRes.ok || !friendshipsRes.ok || !notificationsRes.ok) {
-          throw new Error("Failed to fetch initial data");
-        }
-
-        const conversations = await conversationsRes.json();
-        const friendships: FriendshipExtended[] = await friendshipsRes.json();
-        const { notifications, lastReadNotificationId } = await notificationsRes.json();
-
-        dispatch(setConversations(conversations));
-        dispatch(setFriendships(friendships));
-        dispatch(setUsers(friendships.map((friendship) => friendship.user)));
-        dispatch(setNotifications(notifications));
-        dispatch(setLastReadNotificationId(lastReadNotificationId));
-      } catch (err) {
-        console.log(err);
-        toast.error("Failed to load your chats");
-      } finally {
-        setLoadingChats(false);
-      }
-    }
-
-    fetchInitialData();
-  }, [session, dispatch]);
 
   const handleSignOut = async () => {
     const {error} = await authClient.signOut();
@@ -117,6 +71,7 @@ export default function Home() {
     .sort((a, b) => getLastId(b) - getLastId(a) || b.id - a.id);
 
   const unreadCount = conversations.filter((conversation) => conversation.unreadCount > 0).length;
+  const receivedRequests = friendships.filter((friendship) => friendship.status === "Pending" && friendship.friendId === session?.user.id).length;
 
   if (sessionPending) return <Loading />;
 
@@ -146,6 +101,14 @@ export default function Home() {
               <button onClick={() => setSearching(true)} aria-label="Search chats" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
                 <Search className="size-5" />
               </button>
+              <Link href="/friendships" aria-label="Friends" className="relative flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+                <Users className="size-5" />
+                {receivedRequests > 0 && (
+                  <span className="absolute top-0.5 right-0.5 min-w-4.5 h-4.5 px-1 rounded-full bg-brand-accent text-white text-[11px] md:text-[11px] xl:text-[11px] leading-none flex items-center justify-center">
+                    {receivedRequests}
+                  </span>
+                )}
+              </Link>
               <Link href="/add-friend" aria-label="Add friend" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
                 <UserPlus className="size-5" />
               </Link>
@@ -177,7 +140,7 @@ export default function Home() {
       </div>
 
       <div className="flex-1">
-        {loadingChats ? (
+        {!loaded ? (
           <div className="px-5 space-y-4">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <div key={item} className="flex items-center gap-3 animate-pulse">
