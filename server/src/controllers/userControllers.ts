@@ -62,11 +62,12 @@ export async function searchUsers(req: Request, res: Response) {
 
 export async function getUser(req: Request, res: Response) {
   try {
-    const userId = req.params.userId as string;
+    const userId = req.userId!;
+    const otherUserId = req.params.userId as string;
 
     const user = await prisma.user.findUnique({
       where: {
-        id: userId,
+        id: otherUserId,
       },
       select: {
         id: true,
@@ -78,6 +79,25 @@ export async function getUser(req: Request, res: Response) {
 
     if (!user) {
       return res.status(404).json({message: "User not found"});
+    }
+
+    let friendship = null;
+
+    if (userId !== otherUserId) {
+      friendship = await prisma.friendship.findFirst({
+        where: {
+          OR: [
+            {
+              userId,
+              friendId: otherUserId,
+            },
+            {
+              userId: otherUserId,
+              friendId: userId,
+            },
+          ],
+        },
+      });
     }
 
     let avatarUrl: string | undefined;
@@ -95,6 +115,7 @@ export async function getUser(req: Request, res: Response) {
       email: user.email,
       avatarUrl,
       expiresAt: avatarExpiresAt,
+      friendship,
     });
   } catch (err) {
     console.log(err);

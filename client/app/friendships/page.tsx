@@ -78,6 +78,37 @@ const FriendshipsPage = () => {
     }
   }
 
+  const handleCancel = async (otherUserId: string) => {
+    setLoadingUserId(otherUserId);
+    try {
+      const { data, error } = await authClient.token();
+      if (error || !data?.token) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/friendships/${otherUserId}/cancel`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${data.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.message);
+      }
+
+      const result = await response.json();
+      dispatch(removeFriendship({
+        userId: result.userId,
+        friendId: result.friendId,
+      }));
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to cancel friend request");
+    } finally {
+      setLoadingUserId(null);
+    }
+  }
+
   const handleReject = async (otherUserId: string) => {
     setLoadingUserId(otherUserId);
     try {
@@ -166,7 +197,13 @@ const FriendshipsPage = () => {
             )}
 
             {tab === "Sent" && (
-              <span className="text-sm text-gray-400">Pending</span>
+              <Button
+                onClick={() => handleCancel(friendship.user.id)}
+                disabled={loadingUserId === friendship.user.id}
+                className="h-9 px-4 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                Cancel
+              </Button>
             )}
           </div>
         ))}

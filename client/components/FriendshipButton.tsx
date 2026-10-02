@@ -4,14 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
+import type { Friendship } from "@/generated/prisma";
 import { authClient } from "@/lib/auth-client";
 import { useAppDispatch, useAppSelector } from "@/state/store";
 import { addFriendship } from "@/state/friendshipsSlice";
 import { addUser } from "@/state/usersSlice";
 import { Button } from "./ui/button";
 
-// the label comes from the friendship in the store (Pending / Accepted), accepting happens on the friendships page
-const FriendshipButton = ({userId, className = ""}: {userId: string, className?: string}) => {
+// the label comes from the friendship status (Pending / Accepted), accepting happens on the friendships page
+const FriendshipButton = ({userId, initialFriendship, className = ""}: {
+  userId: string,
+  initialFriendship?: Pick<Friendship, "userId" | "friendId" | "status"> | null,
+  className?: string,
+}) => {
   const { data: session } = authClient.useSession();
   const friendships = useAppSelector((state) => state.friendships.friendships);
   const loaded = useAppSelector((state) => state.conversations.loaded);
@@ -19,10 +24,13 @@ const FriendshipButton = ({userId, className = ""}: {userId: string, className?:
   const [loading, setLoading] = useState(false);
 
   const myId = session?.user.id;
-  const friendship = friendships.find((friendship) =>
+  const storeFriendship = friendships.find((friendship) =>
     (friendship.userId === myId && friendship.friendId === userId) ||
     (friendship.userId === userId && friendship.friendId === myId)
   );
+
+  // the profile already fetched its friendship, once the store is loaded it takes over so socket events show up live
+  const friendship = loaded ? storeFriendship : initialFriendship;
 
   const handleAdd = async () => {
     setLoading(true);
@@ -53,8 +61,8 @@ const FriendshipButton = ({userId, className = ""}: {userId: string, className?:
     }
   }
 
-  // wait for the initial data, otherwise an existing friend would show as "Add friend"
-  if (!loaded) {
+  // nothing to show yet, otherwise an existing friend would flash as "Add friend"
+  if (!loaded && initialFriendship === undefined) {
     return (
       <Button disabled className={`rounded-full bg-gray-100 text-gray-400 opacity-100! ${className}`}>
         ...

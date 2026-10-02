@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Link2, Mail } from "lucide-react";
+import type { Friendship } from "@/generated/prisma";
 import { authClient } from "@/lib/auth-client";
 import Loading from "@/components/Loading";
 import PageHeader from "@/components/PageHeader";
@@ -15,16 +16,17 @@ interface ProfileUser {
   name: string,
   email: string,
   avatarUrl?: string,
+  friendship: Pick<Friendship, "userId" | "friendId" | "status"> | null,
 }
 
 const UserPage = () => {
   const { userId } = useParams<{ userId: string }>();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const router = useRouter();
-  const [fetchedUser, setFetchedUser] = useState<ProfileUser | null>(null);
+  const [user, setUser] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isSelf = session?.user.id === userId;
+  const myId = session?.user.id;
 
   useEffect(() => {
     if (!sessionPending && !session) {
@@ -32,9 +34,9 @@ const UserPage = () => {
     }
   }, [sessionPending, session, router]);
 
-  // your own profile comes from the session, only other people are fetched
+  // the profile always comes from our backend, the server sends friendship: null for your own profile
   useEffect(() => {
-    if (!session || isSelf) return;
+    if (!myId) return;
 
     const fetchUser = async () => {
       try {
@@ -52,7 +54,7 @@ const UserPage = () => {
           throw new Error("Failed to fetch user");
         }
 
-        setFetchedUser(await response.json());
+        setUser(await response.json());
       } catch (err) {
         console.log(err);
         toast.error("Failed to load this profile");
@@ -62,7 +64,7 @@ const UserPage = () => {
     }
 
     fetchUser();
-  }, [session, isSelf, userId]);
+  }, [myId, userId]);
 
   const handleCopyLink = async () => {
     try {
@@ -74,11 +76,7 @@ const UserPage = () => {
     }
   }
 
-  if (sessionPending || (!isSelf && loading)) return <Loading />;
-
-  const user: ProfileUser | null = isSelf && session
-    ? { id: session.user.id, name: session.user.name, email: session.user.email, avatarUrl: session.user.image ?? undefined }
-    : fetchedUser;
+  if (sessionPending || loading) return <Loading />;
 
   if (!user) {
     return (
@@ -88,6 +86,8 @@ const UserPage = () => {
       </div>
     )
   }
+
+  const isSelf = user.id === myId;
 
   return (
     <div className="min-h-screen bg-white max-w-2xl w-full mx-auto">
@@ -106,10 +106,8 @@ const UserPage = () => {
         </div>
 
         <div className="mt-8 flex items-center gap-3">
-          {isSelf ? (
-            <span className="px-4 py-2 rounded-full bg-brand-light text-brand font-medium">This is you</span>
-          ) : (
-            <FriendshipButton userId={user.id} className="h-11 px-8 text-base" />
+          {!isSelf && (
+            <FriendshipButton userId={user.id} initialFriendship={user.friendship} className="h-11 px-8 text-base" />
           )}
           <button
             onClick={handleCopyLink}
