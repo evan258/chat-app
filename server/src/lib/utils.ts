@@ -5,8 +5,14 @@ import { s3Client } from "./s3Client.js";
 import WebSocket from "ws";
 import { clients } from "../websocket.js";
 
-export async function getPreviewUrls (files : File[]) {
-  const result = await Promise.all(
+export async function getPreviewUrls(files: File[]) {
+  const expiresIn = 60 * 60;
+
+  const expiresAt = new Date(
+    Date.now() + expiresIn * 1000
+  ).toISOString();
+
+  const urls = await Promise.all(
     files.map(async (file) => {
       const command = new GetObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME!,
@@ -14,14 +20,17 @@ export async function getPreviewUrls (files : File[]) {
       });
 
       const getUrl = await getSignedUrl(s3Client, command, {
-        expiresIn: 60 * 60,
+        expiresIn,
       });
 
       return getUrl;
     })
-  )
+  );
 
-  return result;
+  return {
+    urls,
+    expiresAt,
+  };
 }
 
 export async function send (ws: WebSocket, data: any) {

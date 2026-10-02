@@ -5,13 +5,18 @@ import { handleUnsendMessage } from "./handlers/handleUnsendMessage.js";
 import { handleReactionUpdate } from "./handlers/handleReactionUpdate.js";
 import { handleTyping } from "./handlers/handleTyping.js";
 import { handleConversationRead } from "./handlers/handleConversationRead.js";
+import { handleActiveUsersQuery } from "./handlers/handleActiveUsersQuery.js";
+import { handleActiveStatus } from "./handlers/handleActiveStatus.js";
 
 export const clients = new Map<string, WebSocket>();
 
 export function setupWebSocket (wss: WebSocketServer) {
-  wss.on("connection", (ws, request) => {
+  wss.on("connection", async (ws, request) => {
     const userId = ws.userId;
     clients.set(userId, ws);
+
+    await handleActiveStatus(userId, "user_active");
+
     ws.on("message", async (data) => {
       const message = JSON.parse(data.toString());
 
@@ -40,9 +45,20 @@ export function setupWebSocket (wss: WebSocketServer) {
           await handleConversationRead(userId, message);
           break;
 
+        case "active_users_query":
+          await handleActiveUsersQuery(ws);
+          break;
+
         default:
           break;
       }
+    })
+
+    ws.on("close", async () => {
+      if (clients.get(userId) !== ws) return;
+      clients.delete(userId);
+
+      await handleActiveStatus(userId, "user_inactive");
     })
   });
 }

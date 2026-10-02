@@ -5,6 +5,7 @@ import { authClient } from "./auth-client";
 import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity } from "@/state/conversationsSlice";
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
 import { addNotification } from "@/state/notificationsSlice";
+import { addUser, removeUser, setUserActive, setUserInactive } from "@/state/usersSlice";
 
 let socket: WebSocket | null = null;
 
@@ -245,6 +246,22 @@ export async function connectSocket () {
 
       case "incoming_notification":
         store.dispatch(addNotification(data.notification));
+        break;
+
+      case "add_user":
+        store.dispatch(addUser(data.user));
+        break;
+
+      case "remove_user":
+        store.dispatch(removeUser(data.userId));
+        break;
+
+      case "user_active":
+        store.dispatch(setUserActive(data.userId));
+        break;
+
+      case "user_inactive":
+        store.dispatch(setUserInactive(data.userId));
         break;
 
       default:
