@@ -6,7 +6,8 @@ export interface Message {
   conversationId: number,
   senderId: string,
   createdAt: null | string,
-  previewUrls: string[],      
+  previewUrls: string[],
+  fileTypes: string[],
   expiresAt: string,
   text?: string | null,
   unsent: boolean,
@@ -77,6 +78,7 @@ const messagesSlice = createSlice({
         unsent: true,
         text: null,
         previewUrls: [],
+        fileTypes: [],
       };
     },
     prependMessages: (state, action: PayloadAction<{conversationId: number, messages: Message[]}>) => {

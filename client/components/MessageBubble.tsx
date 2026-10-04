@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   senderName?: string,
   senderAvatar?: string,
   seen: boolean,
+  uploadProgress?: number,
   isRemoving: boolean,
   isSelected: boolean,
   onSelect: () => void,
@@ -29,7 +30,7 @@ const formatTime = (createdAt: string) => {
 }
 
 const MessageBubble = ({
-  message, isMine, myId, isGroup, isLastInRun, senderName, senderAvatar, seen, isRemoving, isSelected,
+  message, isMine, myId, isGroup, isLastInRun, senderName, senderAvatar, seen, uploadProgress, isRemoving, isSelected,
   onSelect, onReact, onUnsend, onRemove, onRetry,
 }: MessageBubbleProps) => {
   const reactionCounts: Partial<Record<ReactionType, number>> = {};
@@ -53,9 +54,9 @@ const MessageBubble = ({
           <span className="mb-0.5 ml-1 text-xs text-gray-500">{senderName ?? "Member"}</span>
         )}
 
-        <button
+        <div
           onClick={onSelect}
-          className={`rounded-2xl px-3.5 py-2 text-left ${
+          className={`cursor-pointer rounded-2xl px-3.5 py-2 text-left ${
             isMine ? "rounded-br-md bg-brand text-white" : "rounded-bl-md bg-white text-gray-900 shadow-sm"
           } ${message.unsent ? "italic opacity-70" : ""}`}
         >
@@ -64,11 +65,32 @@ const MessageBubble = ({
           ) : (
             <>
               {message.previewUrls.length > 0 && (
-                <div className="mb-1.5 flex flex-col gap-1">
-                  {message.previewUrls.map((url) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={url} src={url} alt="attachment" className="max-h-60 rounded-lg object-cover" />
+                <div className={`relative mb-1.5 grid w-56 gap-1 ${message.previewUrls.length > 1 ? "grid-cols-2" : ""}`}>
+                  {message.previewUrls.map((url, index) => (
+                    message.fileTypes[index]?.startsWith("video/") ? (
+                      <video
+                        key={url}
+                        src={url}
+                        controls
+                        preload="metadata"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`w-full rounded-lg bg-black object-cover ${message.previewUrls.length > 1 ? "h-28" : "h-44"}`}
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={url}
+                        src={url}
+                        alt="attachment"
+                        className={`w-full rounded-lg object-cover ${message.previewUrls.length > 1 ? "h-28" : "h-44"}`}
+                      />
+                    )
                   ))}
+                  {uploadProgress !== undefined && message.status === "sending" && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 text-lg font-medium text-white">
+                      {uploadProgress}%
+                    </div>
+                  )}
                 </div>
               )}
               {message.text && (
@@ -83,7 +105,7 @@ const MessageBubble = ({
             {isMine && message.status === "sent" && (seen ? <CheckCheck className="size-3.5 text-brand-accent" /> : <Check className="size-3.5" />)}
             {isMine && message.status === "failed" && <TriangleAlert className="size-3.5 text-red-300" />}
           </div>
-        </button>
+        </div>
 
         {Object.keys(reactionCounts).length > 0 && (
           <div className="-mt-1.5 flex gap-1 px-1">

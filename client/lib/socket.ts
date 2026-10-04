@@ -6,6 +6,7 @@ import { addConversation, addMembersToConversation, markLastActivityUnsent, newM
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
 import { addNotification, removeNotification } from "@/state/notificationsSlice";
 import { addUser, removeUser, setUserActive, setUserInactive, setUsers } from "@/state/usersSlice";
+import { pendingFiles, revokePreviewUrls } from "./upload";
 
 let socket: WebSocket | null = null;
 
@@ -40,7 +41,13 @@ export async function connectSocket () {
     const data = JSON.parse(event.data);
 
     switch (data.type) {
-      case "message_sent_successfully":
+      case "message_sent_successfully": {
+        // the message gets the real urls, the object urls and the files are not needed anymore
+        const tempMessage = store.getState().messages.messagesByConversation[data.message.conversationId]
+          ?.find((message) => message.id === data.tempId);
+        if (tempMessage) revokePreviewUrls(tempMessage.previewUrls);
+        pendingFiles.delete(data.tempId);
+
         store.dispatch(confirmMessage({
           tempId: data.tempId,
           message: data.message,
@@ -63,6 +70,7 @@ export async function connectSocket () {
           conversationId: data.message.conversationId,
         }));
         break;
+      }
 
       case "message_sent_failed":
         store.dispatch(markMessageAsFailed({
