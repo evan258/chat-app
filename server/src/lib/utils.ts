@@ -4,6 +4,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "./s3Client.js";
 import WebSocket from "ws";
 import { clients } from "../websocket.js";
+import { prisma } from "./prisma.js";
 
 export async function getPreviewUrls(files: File[]) {
   const expiresIn = 60 * 60;
@@ -31,6 +32,43 @@ export async function getPreviewUrls(files: File[]) {
     urls,
     expiresAt,
   };
+}
+
+export async function getUsersForClient (userIds: string[]) {
+  const users = await prisma.user.findMany({
+    where: {
+      id: {
+        in: userIds,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      avatar: true,
+    },
+  });
+
+  const result = await Promise.all(
+    users.map(async (user) => {
+      let avatarUrl: string | undefined;
+      let avatarExpiresAt: string | undefined;
+
+      if (user.avatar) {
+        const { urls, expiresAt } = await getPreviewUrls([user.avatar]);
+        avatarUrl = urls[0];
+        avatarExpiresAt = expiresAt;
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        avatarUrl,
+        expiresAt: avatarExpiresAt,
+      };
+    })
+  );
+
+  return result;
 }
 
 export async function send (ws: WebSocket, data: any) {

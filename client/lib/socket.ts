@@ -2,10 +2,10 @@ import { addIncomingMessage, confirmMessage, deleteRemovingMessage, markMessageA
 import { store } from "@/state/store";
 import { toast } from "sonner";
 import { authClient } from "./auth-client";
-import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity, updateSeenConversation } from "@/state/conversationsSlice";
+import { addConversation, addMembersToConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity, updateSeenConversation } from "@/state/conversationsSlice";
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
 import { addNotification, removeNotification } from "@/state/notificationsSlice";
-import { addUser, removeUser, setUserActive, setUserInactive } from "@/state/usersSlice";
+import { addUser, removeUser, setUserActive, setUserInactive, setUsers } from "@/state/usersSlice";
 
 let socket: WebSocket | null = null;
 
@@ -224,6 +224,13 @@ export async function connectSocket () {
         }));
         break;
 
+      case "incoming_member_added":
+        store.dispatch(addMembersToConversation({
+          conversationId: data.conversationId,
+          memberIds: data.memberIds,
+        }));
+        break;
+
       case "removed_from_conversation":
         store.dispatch(removeConversation({
           conversationId: data.conversationId,
@@ -243,6 +250,7 @@ export async function connectSocket () {
 
       case "incoming_friend_request":
         store.dispatch(addFriendship(data.friendship));
+        store.dispatch(addUser(data.friendship.user));
         break;
 
       case "friend_request_accepted":
@@ -275,6 +283,10 @@ export async function connectSocket () {
 
       case "incoming_notification":
         store.dispatch(addNotification(data.notification));
+        break;
+
+      case "set_users":
+        store.dispatch(setUsers(data.users));
         break;
 
       case "add_user":

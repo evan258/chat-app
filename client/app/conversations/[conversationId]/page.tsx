@@ -17,7 +17,6 @@ import {
   prependMessages, removeMessage, setMessages, updateMessageReactions,
 } from "@/state/messagesSlice";
 import { useAppDispatch, useAppSelector } from "@/state/store";
-import { addUser } from "@/state/usersSlice";
 import Loading from "@/components/Loading";
 import LoadOlderMessages from "@/components/LoadOlderMessages";
 import MessageBubble from "@/components/MessageBubble";
@@ -71,7 +70,6 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
   const loadingOlderRef = useRef(false);
   const typingRef = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const requestedUsersRef = useRef(new Set<string>());
 
   const unreadCount = conversation?.unreadCount ?? 0;
 
@@ -131,40 +129,6 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
       dispatch(updateSeenConversation({ conversationId }));
     }
   }, [messagesLoaded, unreadCount, conversationId, dispatch]);
-
-  // group members that are not friends are not in the store yet, fetch their name and avatar once
-  useEffect(() => {
-    if (!conversation || !myId) return;
-
-    const missingIds = conversation.members.filter((id) => id !== myId && !usersById[id] && !requestedUsersRef.current.has(id));
-    if (missingIds.length === 0) return;
-
-    missingIds.forEach((id) => requestedUsersRef.current.add(id));
-
-    const fetchUsers = async () => {
-      const { data, error } = await authClient.token();
-      if (error || !data?.token) return;
-
-      for (const id of missingIds) {
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users/${id}`, {
-            headers: {
-              Authorization: `Bearer ${data.token}`,
-            },
-          });
-
-          if (!response.ok) continue;
-
-          const user = await response.json();
-          dispatch(addUser({ id: user.id, name: user.name, avatarUrl: user.avatarUrl, expiresAt: user.expiresAt }));
-        } catch (err) {
-          console.log(err);
-        }
-      }
-    }
-
-    fetchUsers();
-  }, [conversation, myId, usersById, dispatch]);
 
   const stopTyping = () => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);

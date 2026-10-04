@@ -74,6 +74,11 @@ const conversationsSlice = createSlice({
       if (!conversation) return;
       conversation.members = conversation.members.filter((id) => id !== action.payload.memberId);
     },
+    addMembersToConversation: (state, action: PayloadAction<{conversationId: number, memberIds: string[]}>) => {
+      const conversation = state.conversations.find((conversation) => conversation.id === action.payload.conversationId);
+      if (!conversation) return;
+      conversation.members = [...conversation.members, ...action.payload.memberIds];
+    },
     updateConversation: (state, action: PayloadAction<Partial<Conversation>>) => {
       const index = state.conversations.findIndex((conv) => conv.id === action.payload.id);
       if (index === -1) return;
@@ -118,6 +123,7 @@ export const {
   newMessageInConversation,
   removeConversation,
   removeMemberFromConversation,
+  addMembersToConversation,
   updateConversation,
   addConversation,
   updateSeenConversation,

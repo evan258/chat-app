@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
-import { getPreviewUrls, sendToUser } from "../lib/utils.js";
+import { getPreviewUrls, getUsersForClient, sendToUser } from "../lib/utils.js";
 import { ConversationType, File } from "../../generated/prisma/index.js";
 import { s3Client } from "../lib/s3Client.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -231,10 +231,17 @@ export async function createConversation(req: Request, res: Response) {
 
     res.status(201).json(conversationForClient);
 
+    const usersForClient = await getUsersForClient(allMemberIds);
+
     for (const memberId of members) {
       sendToUser(memberId, {
         type: "incoming_conversation_added",
         conversation: conversationForClient,
+      });
+
+      sendToUser(memberId, {
+        type: "set_users",
+        users: usersForClient.filter((user) => user.id !== memberId),
       });
 
       const notification = await prisma.notification.create({
@@ -709,6 +716,212 @@ export async function removeMember(req: Request, res: Response) {
   } catch (err) {
     res.status(500).json({
       message: "Failed to remove member",
+    });
+  }
+}
+
+export async function addMembers(req: Request, res: Response) {
+  try {
+    const userId = req.userId!;
+    const conversationId = Number(req.params.conversationId);
+    const { members }: { members: string[] } = req.body;
+
+    const conversation = await prisma.conversation.findUnique({
+      where: {
+        id: conversationId,
+      },
+      select: {
+        type: true,
+        name: true,
+        avatar: true,
+        lastMessage: {
+          select: {
+            id: true,
+            senderId: true,
+            text: true,
+            unsent: true,
+            files: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+        members: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({
+        message: "Conversation not found",
+      });
+    }
+
+    if (conversation.type !== "Group") {
+      return res.status(400).json({
+        message: "Members can only be added to a group conversation",
+      });
+    }
+
+    const isMember = conversation.members.some(
+      (member) => member.userId === userId
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        message: "Not a conversation member",
+      });
+    }
+
+    const existingMemberIds = conversation.members.map(({ userId }) => userId);
+    const newMemberIds = [...new Set(members)].filter(
+      (id) => !existingMemberIds.includes(id)
+    );
+
+    if (newMemberIds.length === 0) {
+      return res.status(400).json({
+        message: "No new members to add",
+      });
+    }
+
+    const friendShips = await prisma.friendship.findMany({
+      where: {
+        OR: [
+          {
+            userId: {
+              in: newMemberIds,
+            },
+            friendId: userId,
+          },
+          {
+            userId,
+            friendId: {
+              in: newMemberIds,
+            },
+          },
+        ],
+        status: "Accepted",
+      },
+    });
+
+    if (friendShips.length !== newMemberIds.length) {
+      return res.status(400).json({ message: "Invalid members" });
+    }
+
+    await prisma.conversationMember.createMany({
+      data: newMemberIds.map((memberId) => ({
+        conversationId,
+        userId: memberId,
+      })),
+    });
+
+    let avatarUrl: string | undefined;
+    let avatarExpiresAt: string | undefined;
+
+    if (conversation.avatar) {
+      const { urls, expiresAt } = await getPreviewUrls([conversation.avatar]);
+      avatarUrl = urls[0];
+      avatarExpiresAt = expiresAt;
+    }
+
+    let name: string | undefined;
+    if (conversation.name) name = conversation.name;
+
+    let lastActivity;
+    const lastMessage = conversation.lastMessage;
+
+    if (lastMessage) {
+      lastActivity = {
+        type: "message" as const,
+        id: lastMessage.id,
+        senderId: lastMessage.senderId,
+        text: lastMessage.text,
+        filesLen: lastMessage.files.length,
+        unsent: lastMessage.unsent,
+      };
+    }
+
+    const allMemberIds = [...existingMemberIds, ...newMemberIds];
+
+    const conversationForClient = {
+      id: conversationId,
+      type: conversation.type,
+      members: allMemberIds,
+      avatarUrl,
+      expiresAt: avatarExpiresAt,
+      name,
+      unreadCount: 0,
+      lastActivity,
+    };
+
+    const usersForClient = await getUsersForClient(allMemberIds);
+
+    res.json({
+      conversationId,
+      memberIds: newMemberIds,
+    });
+
+    for (const memberId of newMemberIds) {
+      sendToUser(memberId, {
+        type: "incoming_conversation_added",
+        conversation: conversationForClient,
+      });
+
+      sendToUser(memberId, {
+        type: "set_users",
+        users: usersForClient.filter((user) => user.id !== memberId),
+      });
+
+      const notification = await prisma.notification.create({
+        data: {
+          initiatorId: userId,
+          recipientId: memberId,
+          type: "AddedToGroup",
+          conversationId,
+        },
+      });
+
+      sendToUser(memberId, {
+        type: "incoming_notification",
+        notification: {
+          id: notification.id,
+          type: notification.type,
+          initiatorId: notification.initiatorId,
+          recipientId: notification.recipientId,
+
+          conversationId: {
+            id: conversationId,
+            name: conversation.name,
+            avatarUrl,
+            expiresAt: avatarExpiresAt,
+          },
+
+          createdAt: notification.createdAt.toISOString(),
+        },
+      });
+    }
+
+    for (const memberId of existingMemberIds) {
+      if (memberId === userId) continue;
+
+      sendToUser(memberId, {
+        type: "incoming_member_added",
+        conversationId,
+        memberIds: newMemberIds,
+      });
+
+      sendToUser(memberId, {
+        type: "set_users",
+        users: usersForClient.filter((user) => newMemberIds.includes(user.id)),
+      });
+    }
+  } catch (err) {
+    res.status(500).json({
+      message: "Failed to add members",
     });
   }
 }
