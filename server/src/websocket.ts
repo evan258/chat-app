@@ -32,7 +32,7 @@ export function setupWebSocket (wss: WebSocketServer) {
     const userId = ws.userId;
 
     const oldSocket = clients.get(userId);
-    if (oldSocket) oldSocket.terminate();
+    if (oldSocket) oldSocket.close(4000, "Connected from somewhere else");
     clients.set(userId, ws);
 
     ws.isAlive = true;
