@@ -42,7 +42,7 @@ const MessageBubble = ({
 
   return (
     <div className={`flex gap-2 px-3 pt-0.5 ${isLastInRun ? "pb-2.5" : "pb-0.5"} ${isMine ? "justify-end" : "justify-start"} ${isRemoving ? "opacity-50" : ""}`}>
-      {!isMine && isGroup && (
+      {!isMine && (
         <div className="w-8 shrink-0 self-end">
           <UserAvatar name={senderName ?? "?"} src={senderAvatar} className="size-8 text-sm" />
         </div>
