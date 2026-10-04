@@ -2,12 +2,18 @@ import { addIncomingMessage, confirmMessage, deleteRemovingMessage, markMessageA
 import { store } from "@/state/store";
 import { toast } from "sonner";
 import { authClient } from "./auth-client";
-import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity } from "@/state/conversationsSlice";
+import { addConversation, markLastActivityUnsent, newMessageInConversation, removeConversation, removeMemberFromConversation, updateConversation, updateLastActivity, updateSeenConversation } from "@/state/conversationsSlice";
 import { addFriendship, removeFriendship, updateFriendship } from "@/state/friendshipsSlice";
 import { addNotification, removeNotification } from "@/state/notificationsSlice";
 import { addUser, removeUser, setUserActive, setUserInactive } from "@/state/usersSlice";
 
 let socket: WebSocket | null = null;
+
+export function sendSocketMessage (data: object) {
+  if (socket?.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(data));
+  return true;
+}
 
 export async function connectSocket () {
   if (socket) return;
@@ -20,6 +26,14 @@ export async function connectSocket () {
 
   socket.onopen = () => {
     socket?.send(JSON.stringify({type: "active_users_query"}));
+
+    // the conversation page can already be open while the socket was still connecting
+    const { conversations, openConversationId } = store.getState().conversations;
+    const openConversation = conversations.find((conversation) => conversation.id === openConversationId);
+    if (openConversation && openConversation.unreadCount > 0) {
+      socket?.send(JSON.stringify({type: "conversation_read", conversationId: openConversation.id}));
+      store.dispatch(updateSeenConversation({conversationId: openConversation.id}));
+    }
   }
 
   socket.onmessage = (event) => {

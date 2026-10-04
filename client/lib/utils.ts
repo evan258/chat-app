@@ -3,6 +3,7 @@ import { twMerge } from "tailwind-merge"
 import { authClient } from "./auth-client";
 import type { Conversation } from "@/state/conversationsSlice";
 import type { User } from "@/state/usersSlice";
+import type { ReactionType } from "@/generated/prisma";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -47,3 +48,11 @@ export function getConversationInfo(conversation: Conversation, myId: string | u
     otherUserId: undefined,
   };
 }
+
+export const reactionEmojis: Record<ReactionType, string> = {
+  Love: "❤️",
+  Haha: "😂",
+  Sad: "😢",
+  Wow: "😮",
+  Angry: "😡",
+};

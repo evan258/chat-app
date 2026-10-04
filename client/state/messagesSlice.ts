@@ -16,8 +16,8 @@ export interface Message {
 
 interface MessagesState {
   messagesByConversation: Record<number, Message[]>,
-  typingByConversation: Record<number, Record<number, boolean>>,
-  lastReadByConversation: Record<number, Record<number, number>>,
+  typingByConversation: Record<number, Record<string, boolean>>,
+  lastReadByConversation: Record<number, Record<string, number>>,
   removingMessagesByConversation: Record<number, number[]>,
 }
 
@@ -66,7 +66,7 @@ const messagesSlice = createSlice({
       if (index === -1) return;
       state.messagesByConversation[action.payload.conversationId][index] = {...messages[index], status: "failed"};
     },
-    markMessageAsUnsent: (state, action: PayloadAction<{messageId: string, conversationId: number}>) => {
+    markMessageAsUnsent: (state, action: PayloadAction<{messageId: number, conversationId: number}>) => {
       const messages = state.messagesByConversation[action.payload.conversationId];
       if (!messages) return;
       const index = messages.findIndex((message) => message.id === action.payload.messageId);
@@ -83,18 +83,18 @@ const messagesSlice = createSlice({
       const currentMessages = state.messagesByConversation[action.payload.conversationId] || [];
       state.messagesByConversation[action.payload.conversationId] = [...action.payload.messages, ...currentMessages];
     },
-    removeMessage: (state, action: PayloadAction<{conversationId: number, messageId: number}>) => {
+    removeMessage: (state, action: PayloadAction<{conversationId: number, messageId: string | number}>) => {
       const {conversationId, messageId} = action.payload;
       if (!state.messagesByConversation[conversationId]) return;
       state.messagesByConversation[conversationId] = state.messagesByConversation[conversationId].filter((message) => message.id !== messageId);
     },
-    setTyping: (state, action: PayloadAction<{conversationId: number, userId: number, isTyping: boolean}>) => {
+    setTyping: (state, action: PayloadAction<{conversationId: number, userId: string, isTyping: boolean}>) => {
       if (!state.typingByConversation[action.payload.conversationId]) {
         state.typingByConversation[action.payload.conversationId] = {};
       }
       state.typingByConversation[action.payload.conversationId][action.payload.userId] = action.payload.isTyping;
     },
-    setLastRead: (state, action: PayloadAction<{conversationId: number, userId: number, messageId: number}>) => {
+    setLastRead: (state, action: PayloadAction<{conversationId: number, userId: string, messageId: number}>) => {
       const {conversationId, userId, messageId} = action.payload;
       if (!state.lastReadByConversation[conversationId]) {
         state.lastReadByConversation[conversationId] = {};
