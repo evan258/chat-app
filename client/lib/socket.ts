@@ -164,7 +164,7 @@ export async function connectSocket () {
           lastActivity: {
             type: "reaction",
             messageId: data.messageId,
-            senderId: data.userId,
+            userId: data.userId,
             reaction: data.reaction,
             reactionAction: data.action,
           },
@@ -177,7 +177,7 @@ export async function connectSocket () {
           lastActivity: {
             type: "reaction",
             messageId: data.messageId,
-            senderId: data.userId,
+            userId: data.userId,
             reaction: data.reaction,
             reactionAction: data.action,
           },

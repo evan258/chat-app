@@ -19,15 +19,22 @@ const ConversationItem = ({conversation, myId, onClick}: {
   const activity = conversation.lastActivity;
 
   let preview = "No messages yet";
-  if (activity?.type === "message") {
-    if (activity.unsent) preview = "Message unsent";
-    else if (activity.text) preview = activity.text;
-    else if (activity.filesLen === 1) preview = "📎 Attachment";
-    else if (activity.filesLen > 1) preview = `📎 ${activity.filesLen} attachments`;
+  if (activity) {
+    // the user who made the activity: the sender of the message or the one who reacted
+    const activityUserId = activity.type === "message" ? activity.senderId : activity.userId;
+    const activityUserName = activityUserId === myId ? "You" : usersById[activityUserId]?.name ?? "Someone";
 
-    if (activity.senderId === myId) preview = `You: ${preview}`;
-  } else if (activity?.type === "reaction") {
-    preview = `Reacted ${reactionEmojis[activity.reaction]} to a message`;
+    if (activity.type === "message") {
+      if (activity.unsent) preview = "Message unsent";
+      else if (activity.text) preview = activity.text;
+      else if (activity.filesLen === 1) preview = "📎 Attachment";
+      else if (activity.filesLen > 1) preview = `📎 ${activity.filesLen} attachments`;
+
+      // in a direct chat the other user is already the title
+      if (activityUserId === myId || conversation.type === "Group") preview = `${activityUserName}: ${preview}`;
+    } else {
+      preview = `${activityUserName} reacted ${reactionEmojis[activity.reaction]} to a message`;
+    }
   }
 
   return (
