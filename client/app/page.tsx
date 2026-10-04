@@ -4,8 +4,7 @@ import ConversationItem from "@/components/ConversationItem";
 import Loading from "@/components/Loading";
 import { authClient } from "@/lib/auth-client";
 import { getConversationInfo } from "@/lib/utils";
-import { setOpenConversationId } from "@/state/conversationsSlice";
-import { useAppDispatch, useAppSelector } from "@/state/store";
+import { useAppSelector } from "@/state/store";
 import { LogOut, MessageCircle, Search, UserPlus, Users, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,7 +17,6 @@ const filters = ["All", "Unread", "Direct", "Groups"] as const;
 export default function Home() {
   const {data: session, isPending: sessionPending} = authClient.useSession();
   const router = useRouter();
-  const dispatch = useAppDispatch();
   const conversations = useAppSelector((state) => state.conversations.conversations);
   const usersById = useAppSelector((state) => state.users.byId);
   const loaded = useAppSelector((state) => state.conversations.loaded);
@@ -175,7 +173,7 @@ export default function Home() {
               key={conversation.id}
               conversation={conversation}
               myId={session?.user.id}
-              onClick={() => dispatch(setOpenConversationId(conversation.id))}
+              onClick={() => router.push(`/conversations/${conversation.id}`)}
             />
           ))
         )}

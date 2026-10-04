@@ -2,16 +2,8 @@
 
 import { Conversation } from "@/state/conversationsSlice";
 import { useAppSelector } from "@/state/store";
-import { getConversationInfo } from "@/lib/utils";
+import { getConversationInfo, reactionEmojis } from "@/lib/utils";
 import UserAvatar from "./UserAvatar";
-
-const reactionEmojis = {
-  Love: "❤️",
-  Haha: "😂",
-  Sad: "😢",
-  Wow: "😮",
-  Angry: "😡",
-};
 
 const ConversationItem = ({conversation, myId, onClick}: {
   conversation: Conversation,

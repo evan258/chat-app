@@ -7,6 +7,7 @@ import { handleTyping } from "./handlers/handleTyping.js";
 import { handleConversationRead } from "./handlers/handleConversationRead.js";
 import { handleActiveUsersQuery } from "./handlers/handleActiveUsersQuery.js";
 import { handleActiveStatus } from "./handlers/handleActiveStatus.js";
+import { handleSetUsers } from "./handlers/handleSetUsers.js";
 
 export const clients = new Map<string, WebSocket>();
 
@@ -83,6 +84,7 @@ export function setupWebSocket (wss: WebSocketServer) {
       await handleActiveStatus(userId, "user_inactive");
     })
 
+    await handleSetUsers(ws);
     await handleActiveStatus(userId, "user_active");
   });
 }
