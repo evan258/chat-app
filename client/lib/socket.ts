@@ -8,6 +8,7 @@ import { addNotification, removeNotification } from "@/state/notificationsSlice"
 import { addUser, removeUser, setUserActive, setUserInactive, setUsers } from "@/state/usersSlice";
 
 let socket: WebSocket | null = null;
+let connecting = false;
 
 export function sendSocketMessage (data: object) {
   if (socket?.readyState !== WebSocket.OPEN) return false;
@@ -16,13 +17,16 @@ export function sendSocketMessage (data: object) {
 }
 
 export async function connectSocket () {
-  if (socket) return;
+  if (socket || connecting) return;
 
+  connecting = true;
   const { data, error } = await authClient.token();
+  connecting = false;
   if (error || !data?.token) return;
 
   const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}?token=${encodeURIComponent(data.token)}`;
-  socket = new WebSocket(wsUrl);
+  const ws = new WebSocket(wsUrl);
+  socket = ws;
 
   socket.onopen = () => {
     socket?.send(JSON.stringify({type: "active_users_query"}));
@@ -314,7 +318,14 @@ export async function connectSocket () {
     console.log(err);
   }
 
-  socket.onclose = () => {
-    socket = null;
+  socket.onclose = (event) => {
+    // an old socket closing must not clear the one that replaced it
+    if (socket === ws) socket = null;
+
+    // 4000: the server replaced this socket because the user connected somewhere else (another tab),
+    // reconnecting would only make the two tabs kick each other out
+    if (event.code === 4000) return;
+
+    setTimeout(connectSocket, 3000);
   }
 }
