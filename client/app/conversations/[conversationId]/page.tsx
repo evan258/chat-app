@@ -6,10 +6,20 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
-import { ArrowDown, ArrowLeft, Send } from "lucide-react";
+import { FileStatus, type FilePondFile } from "filepond";
+import { FilePond, registerPlugin } from "react-filepond";
+import "filepond/dist/filepond.min.css";
+import FilePondPluginImageExifOrientation from "filepond-plugin-image-exif-orientation";
+import FilePondPluginImagePreview from "filepond-plugin-image-preview";
+import FilePondPluginFileValidateSize from "filepond-plugin-file-validate-size";
+import FilePondPluginFileValidateType from "filepond-plugin-file-validate-type";
+import "filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css";
+import { ArrowDown, ArrowLeft, Paperclip, Send } from "lucide-react";
 import type { ReactionType } from "@/generated/prisma";
+import type { User } from "@/state/usersSlice";
 import { authClient } from "@/lib/auth-client";
 import { sendSocketMessage } from "@/lib/socket";
+import { pendingFiles, revokePreviewUrls, uploadFiles } from "@/lib/upload";
 import { getConversationInfo } from "@/lib/utils";
 import { setOpenConversationId, updateSeenConversation } from "@/state/conversationsSlice";
 import {
@@ -20,7 +30,15 @@ import { useAppDispatch, useAppSelector } from "@/state/store";
 import Loading from "@/components/Loading";
 import LoadOlderMessages from "@/components/LoadOlderMessages";
 import MessageBubble from "@/components/MessageBubble";
+import TypingIndicator from "@/components/TypingIndicator";
 import UserAvatar from "@/components/UserAvatar";
+
+registerPlugin(
+  FilePondPluginImageExifOrientation,
+  FilePondPluginImagePreview,
+  FilePondPluginFileValidateSize,
+  FilePondPluginFileValidateType,
+);
 
 // virtuoso needs a positive firstItemIndex that it can decrease every time messages are prepended
 const START_INDEX = 100000;
@@ -30,6 +48,7 @@ const noMessages: Message[] = [];
 
 interface ListContext {
   isLoadingOlder: boolean,
+  typingUsers: User[],
 }
 
 const ListHeader = ({ context }: { context?: ListContext }) => {
@@ -38,6 +57,12 @@ const ListHeader = ({ context }: { context?: ListContext }) => {
       {context?.isLoadingOlder && <LoadOlderMessages />}
     </div>
   )
+}
+
+const ListFooter = ({ context }: { context?: ListContext }) => {
+  if (!context || context.typingUsers.length === 0) return <div className="h-1" />;
+
+  return <TypingIndicator users={context.typingUsers} />
 }
 
 // id of a message that is not confirmed by the server yet
@@ -65,6 +90,9 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
   const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX);
   const [atBottom, setAtBottom] = useState(true);
   const [input, setInput] = useState("");
+  const [pondItems, setPondItems] = useState<FilePondFile[]>([]);
+  const [showAttach, setShowAttach] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
 
   const loadingOlderRef = useRef(false);
@@ -72,6 +100,14 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unreadCount = conversation?.unreadCount ?? 0;
+
+  // a rejected file (wrong type or too big) stays in the tray with its error, but it is not sent
+  const files = pondItems.filter((item) => item.status === FileStatus.IDLE).map((item) => item.file as File);
+
+  const typingUsers = Object.entries(typing ?? {})
+    .filter(([userId, isTyping]) => isTyping && userId !== myId)
+    .map(([userId]) => usersById[userId] ?? { id: userId, name: "Someone" });
+  const typingCount = typingUsers.length;
 
   useEffect(() => {
     if (!sessionPending && !session) {
@@ -129,6 +165,13 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
       dispatch(updateSeenConversation({ conversationId }));
     }
   }, [messagesLoaded, unreadCount, conversationId, dispatch]);
+
+  // the typing bubble is the footer of the list, keep it in view when you are at the bottom
+  useEffect(() => {
+    if (typingCount > 0 && atBottom) {
+      virtuosoRef.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER, behavior: "smooth" });
+    }
+  }, [typingCount, atBottom]);
 
   const stopTyping = () => {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -189,17 +232,19 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
     }
   }
 
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string, attachments: File[]) => {
     if (!myId) return;
 
     const tempId = createTempId();
 
+    // the files are shown with object urls until the message is sent
     dispatch(addOptimisticMessage({
       id: tempId,
       conversationId,
       senderId: myId,
       createdAt: null,
-      previewUrls: [],
+      previewUrls: attachments.map((file) => URL.createObjectURL(file)),
+      fileTypes: attachments.map((file) => file.type),
       expiresAt: "",
       text,
       unsent: false,
@@ -207,21 +252,39 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
       reactions: [],
     }));
 
-    const sent = sendSocketMessage({ type: "send_message", id: tempId, conversationId, text, fileIds: [] });
+    // your own message always scrolls to the bottom, even when you were reading older ones
+    requestAnimationFrame(scrollToBottom);
+
+    let fileIds: number[] = [];
+
+    if (attachments.length > 0) {
+      pendingFiles.set(tempId, attachments);
+
+      try {
+        fileIds = await uploadFiles(attachments, (percent) => {
+          setUploadProgress((progress) => ({ ...progress, [tempId]: percent }));
+        });
+      } catch (err) {
+        console.log(err);
+        dispatch(markMessageAsFailed({ tempId, conversationId }));
+        return;
+      }
+    }
+
+    const sent = sendSocketMessage({ type: "send_message", id: tempId, conversationId, text, fileIds });
     if (!sent) {
       dispatch(markMessageAsFailed({ tempId, conversationId }));
     }
-
-    // your own message always scrolls to the bottom, even when you were reading older ones
-    requestAnimationFrame(scrollToBottom);
   }
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text && files.length === 0) return;
 
-    sendMessage(text);
+    sendMessage(text, files);
     setInput("");
+    setPondItems([]);
+    setShowAttach(false);
     stopTyping();
   }
 
@@ -238,8 +301,13 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
   }
 
   const handleRetry = (message: Message) => {
+    const attachments = pendingFiles.get(String(message.id)) ?? [];
+
+    pendingFiles.delete(String(message.id));
+    revokePreviewUrls(message.previewUrls);
     dispatch(removeMessage({ conversationId, messageId: message.id }));
-    if (message.text) sendMessage(message.text);
+
+    if (message.text || attachments.length > 0) sendMessage(message.text ?? "", attachments);
   }
 
   const handleReact = (message: Message, reaction: ReactionType) => {
@@ -260,6 +328,8 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
 
     // a message that failed to send only exists here
     if (typeof message.id !== "number") {
+      pendingFiles.delete(message.id);
+      revokePreviewUrls(message.previewUrls);
       dispatch(removeMessage({ conversationId, messageId: message.id }));
       return;
     }
@@ -287,16 +357,7 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
   const isGroup = conversation.type === "Group";
   const isActive = otherUserId ? activeUsers[otherUserId] : false;
 
-  const typingNames = Object.entries(typing ?? {})
-    .filter(([userId, isTyping]) => isTyping && userId !== myId)
-    .map(([userId]) => usersById[userId]?.name.split(" ")[0] ?? "Someone");
-
-  let subtitle = isGroup ? `${conversation.members.length} members` : isActive ? "Online" : "Offline";
-  if (typingNames.length > 0) {
-    subtitle = isGroup
-      ? `${typingNames[0]}${typingNames.length > 1 ? ` and ${typingNames.length - 1} more` : ""} typing...`
-      : "typing...";
-  }
+  const subtitle = isGroup ? `${conversation.members.length} members` : isActive ? "Online" : "Offline";
 
   return (
     <div className="flex h-dvh max-w-2xl w-full mx-auto flex-col bg-[#F3F7FC]">
@@ -311,7 +372,7 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{name}</div>
-            <div className={`truncate text-xs ${typingNames.length > 0 ? "text-brand-accent" : "text-white/70"}`}>{subtitle}</div>
+            <div className="truncate text-xs text-white/70">{subtitle}</div>
           </div>
         </div>
       </header>
@@ -326,7 +387,7 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
             ref={virtuosoRef}
             style={{ height: "100%" }}
             data={messages}
-            context={{ isLoadingOlder }}
+            context={{ isLoadingOlder, typingUsers }}
             firstItemIndex={firstItemIndex}
             initialTopMostItemIndex={{ index: "LAST", align: "end" }}
             computeItemKey={(_, message) => message.id}
@@ -335,7 +396,7 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
             atBottomThreshold={100}
             skipAnimationFrameInResizeObserver
             startReached={loadOlderMessages}
-            components={{ Header: ListHeader }}
+            components={{ Header: ListHeader, Footer: ListFooter }}
             itemContent={(index, message) => {
               // a row must never depend on the message above it, otherwise prepending older messages changes its height
               const next = messages[index - firstItemIndex + 1];
@@ -354,6 +415,7 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
                   senderName={sender?.name}
                   senderAvatar={sender?.avatarUrl}
                   seen={seen}
+                  uploadProgress={uploadProgress[String(message.id)]}
                   isRemoving={typeof message.id === "number" && !!removingIds?.includes(message.id)}
                   isSelected={selectedId === message.id}
                   onSelect={() => setSelectedId(selectedId === message.id ? null : message.id)}
@@ -378,6 +440,23 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
         )}
       </div>
 
+      {showAttach && (
+        <div className="max-h-64 shrink-0 overflow-y-auto bg-white px-4 pt-3">
+          <FilePond
+            allowMultiple
+            labelIdle='Drag & Drop your photos and videos or <span class="filepond--label-action">Browse</span><br/>Maximum 10 files, 100 MB each'
+            maxFiles={10}
+            maxFileSize="100MB"
+            acceptedFileTypes={["image/*", "video/*"]}
+            credits={false}
+            itemInsertLocation="after"
+            imagePreviewHeight={80}
+            files={pondItems.map((item) => item.file)}
+            onupdatefiles={setPondItems}
+          />
+        </div>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -385,15 +464,26 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
         }}
         className="shrink-0 flex items-center gap-2 bg-white px-4 py-3"
       >
+        <button
+          type="button"
+          onClick={() => setShowAttach(!showAttach)}
+          aria-label="Attach photos and videos"
+          className={`relative flex size-11 shrink-0 items-center justify-center rounded-full ${showAttach ? "bg-brand-light text-brand" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+        >
+          <Paperclip className="size-5" />
+          {files.length > 0 && (
+            <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-brand-accent text-xs text-white">{files.length}</span>
+          )}
+        </button>
         <input
           value={input}
           onChange={(e) => handleInputChange(e.target.value)}
           placeholder="Type a message ..."
-          className="h-11 flex-1 rounded-full bg-gray-100 px-5 text-gray-800 placeholder:text-gray-400 outline-none"
+          className="h-11 min-w-0 flex-1 rounded-full bg-gray-100 px-5 text-gray-800 placeholder:text-gray-400 outline-none"
         />
         <button
           type="submit"
-          disabled={!input.trim()}
+          disabled={!input.trim() && files.length === 0}
           aria-label="Send message"
           className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-accent text-white hover:bg-brand disabled:opacity-50"
         >

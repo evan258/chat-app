@@ -95,6 +95,7 @@ export async function handleSendMessage (ws: WebSocket, userId: string, data: Me
       unsent: false,
       status: "sent",
       previewUrls: urls,
+      fileTypes: orderedFiles.map((file) => file.fileType),
       expiresAt,
       createdAt: message.createdAt.toISOString(),
       reactions: message.reactions,

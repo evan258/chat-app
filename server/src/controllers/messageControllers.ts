@@ -34,7 +34,11 @@ export async function getMessages (req: Request, res: Response) {
         id: "asc",
       },
       include: {
-        files: true,
+        files: {
+          orderBy: {
+            id: "asc",
+          },
+        },
         reactions: {
           select: {
             userId: true,
@@ -53,6 +57,7 @@ export async function getMessages (req: Request, res: Response) {
           senderId: message.senderId,
           createdAt: message.createdAt.toISOString(),
           previewUrls: urls,
+          fileTypes: message.files.map((file) => file.fileType),
           expiresAt,
           text: message.text,
           unsent: message.unsent,
@@ -104,7 +109,11 @@ export async function getOlderMessages (req: Request, res: Response) {
             reaction: true,
           },
         },
-        files: true,
+        files: {
+          orderBy: {
+            id: "asc",
+          },
+        },
       },
     });
 
@@ -117,6 +126,7 @@ export async function getOlderMessages (req: Request, res: Response) {
           senderId: message.senderId,
           createdAt: message.createdAt.toISOString(),
           previewUrls: urls,
+          fileTypes: message.files.map((file) => file.fileType),
           expiresAt,
           text: message.text,
           unsent: message.unsent,
