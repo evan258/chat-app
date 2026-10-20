@@ -35,6 +35,14 @@ const userSlice = createSlice({
     updateUser: (state, action: PayloadAction<User>) => {
       state.byId[action.payload.id] = action.payload;
     },
+    updateUserAvatars: (state, action: PayloadAction<{id: string, avatarUrl?: string, expiresAt?: string}[]>) => {
+      for (const item of action.payload) {
+        const user = state.byId[item.id];
+        if (!user) continue;
+        user.avatarUrl = item.avatarUrl;
+        user.expiresAt = item.expiresAt;
+      }
+    },
     setActiveUsers: (state,action: PayloadAction<string[]>) => {
       for (const userId of action.payload) {
         state.activeUsers[userId] = true;
@@ -54,6 +62,7 @@ export const {
   addUser,
   removeUser,
   updateUser,
+  updateUserAvatars,
   setActiveUsers,
   setUserActive,
   setUserInactive,

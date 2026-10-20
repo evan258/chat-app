@@ -83,6 +83,14 @@ const messagesSlice = createSlice({
       const currentMessages = state.messagesByConversation[action.payload.conversationId] || [];
       state.messagesByConversation[action.payload.conversationId] = [...action.payload.messages, ...currentMessages];
     },
+    updateMessageUrls: (state, action: PayloadAction<{id: number, conversationId: number, previewUrls: string[], expiresAt: string}[]>) => {
+      for (const item of action.payload) {
+        const message = state.messagesByConversation[item.conversationId]?.find((message) => message.id === item.id);
+        if (!message) continue;
+        message.previewUrls = item.previewUrls;
+        message.expiresAt = item.expiresAt;
+      }
+    },
     removeMessage: (state, action: PayloadAction<{conversationId: number, messageId: string | number}>) => {
       const {conversationId, messageId} = action.payload;
       if (!state.messagesByConversation[conversationId]) return;
@@ -144,6 +152,7 @@ export const {
   addIncomingMessage,
   markMessageAsFailed,
   markMessageAsUnsent,
+  updateMessageUrls,
   removeMessage,
   setTyping,
   setLastRead,

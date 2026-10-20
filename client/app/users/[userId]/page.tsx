@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Link2, Mail } from "lucide-react";
 import type { Friendship } from "@/generated/prisma";
 import { authClient } from "@/lib/auth-client";
+import { useAppSelector } from "@/state/store";
 import Loading from "@/components/Loading";
 import PageHeader from "@/components/PageHeader";
 import UserAvatar from "@/components/UserAvatar";
@@ -25,6 +26,7 @@ const UserPage = () => {
   const router = useRouter();
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const usersById = useAppSelector((state) => state.users.byId);
 
   const myId = session?.user.id;
 
@@ -95,7 +97,7 @@ const UserPage = () => {
 
       <div className="flex flex-col items-center px-5 pt-8">
         <div className="rounded-full ring-4 ring-brand-light shadow-lg">
-          <UserAvatar name={user.name} src={user.avatarUrl} className="size-32 text-5xl" />
+          <UserAvatar name={user.name} src={usersById[user.id]?.avatarUrl ?? user.avatarUrl} className="size-32 text-5xl" />
         </div>
 
         <h2 className="mt-5 text-2xl font-bold text-gray-900 text-center break-all">{user.name}</h2>
