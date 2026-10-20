@@ -27,6 +27,7 @@ const FriendshipsPage = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const friendships = useAppSelector((state) => state.friendships.friendships);
+  const usersById = useAppSelector((state) => state.users.byId);
   const [tab, setTab] = useState<typeof tabs[number]>("Received");
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
 
@@ -173,7 +174,7 @@ const FriendshipsPage = () => {
         {lists[tab].map((friendship) => (
           <div key={friendship.id} className="flex items-center gap-3 py-3">
             <Link href={`/users/${friendship.user.id}`} className="flex flex-1 min-w-0 items-center gap-3">
-              <UserAvatar name={friendship.user.name} src={friendship.user.avatarUrl} />
+              <UserAvatar name={friendship.user.name} src={usersById[friendship.user.id]?.avatarUrl ?? friendship.user.avatarUrl} />
               <span className="flex-1 min-w-0 truncate font-medium text-gray-900">{friendship.user.name}</span>
             </Link>
 

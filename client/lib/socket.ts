@@ -172,7 +172,7 @@ export async function connectSocket () {
           lastActivity: {
             type: "reaction",
             messageId: data.messageId,
-            senderId: data.userId,
+            userId: data.userId,
             reaction: data.reaction,
             reactionAction: data.action,
           },
@@ -185,7 +185,7 @@ export async function connectSocket () {
           lastActivity: {
             type: "reaction",
             messageId: data.messageId,
-            senderId: data.userId,
+            userId: data.userId,
             reaction: data.reaction,
             reactionAction: data.action,
           },
@@ -322,7 +322,13 @@ export async function connectSocket () {
     console.log(err);
   }
 
-  socket.onclose = () => {
+  socket.onclose = (event) => {
     socket = null;
+
+    // 4000: the server replaced this socket because the user connected somewhere else (another tab),
+    // reconnecting would only make the two tabs kick each other out
+    if (event.code === 4000) return;
+
+    setTimeout(connectSocket, 3000);
   }
 }

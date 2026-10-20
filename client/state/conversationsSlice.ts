@@ -15,7 +15,7 @@ interface LastActivityMessage {
 interface LastActivityReaction {
   type: "reaction",
   messageId: number,
-  senderId: string,
+  userId: string,
   reaction: ReactionType,
   reactionAction: ReactionAction,
 }
