@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
-import { getPreviewUrls, getUsersForClient, sendToUser } from "../lib/utils.js";
+import { getNotificationForClient, getPreviewUrls, getUsersForClient, sendToUser } from "../lib/utils.js";
 import { ConversationType, File } from "../../generated/prisma/index.js";
 import { s3Client } from "../lib/s3Client.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -255,21 +255,7 @@ export async function createConversation(req: Request, res: Response) {
 
       sendToUser(memberId, {
         type: "incoming_notification",
-        notification: {
-          id: notification.id,
-          type: notification.type,
-          initiatorId: notification.initiatorId,
-          recipientId: notification.recipientId,
-
-          conversationId: {
-            id: createdConversation.id,
-            name: createdConversation.name,
-            avatarUrl,
-            expiresAt: avatarExpiresAt,
-          },
-
-          createdAt: notification.createdAt.toISOString(),
-        },
+        notification: await getNotificationForClient(notification.id),
       });
     }
   } catch (err) {
@@ -416,43 +402,11 @@ export async function updateConversation(req: Request, res: Response) {
             type: "GroupNameChanged",
             conversationId,
           },
-          include: {
-            conversation: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
-          },
         });
-
-        let conversationAvatarUrl: string | undefined;
-        let conversationAvatarExpiresAt: string | undefined;
-
-        if (notification.conversation?.avatar) {
-          const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
-          conversationAvatarUrl = urls[0];
-          conversationAvatarExpiresAt = expiresAt;
-        }
 
         sendToUser(member.userId, {
           type: "incoming_notification",
-          notification: {
-            id: notification.id,
-            type: notification.type,
-            initiatorId: notification.initiatorId,
-            recipientId: notification.recipientId,
-            ...(notification.conversation && {
-              conversationId: {
-                id: notification.conversation.id,
-                name: notification.conversation.name,
-                avatarUrl: conversationAvatarUrl,
-                expiresAt: conversationAvatarExpiresAt,
-              },
-            }),
-            createdAt: notification.createdAt.toISOString(),
-          },
+          notification: await getNotificationForClient(notification.id),
         });
       }
 
@@ -464,45 +418,11 @@ export async function updateConversation(req: Request, res: Response) {
             type: "GroupPhotoChanged",
             conversationId,
           },
-          include: {
-            conversation: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
-          },
         });
-
-        
-        let conversationAvatarUrl: string | undefined;
-        let conversationAvatarExpiresAt: string | undefined;
-
-        if (notification.conversation?.avatar) {
-          const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
-          conversationAvatarUrl = urls[0];
-          conversationAvatarExpiresAt = expiresAt;
-        }
-
 
         sendToUser(member.userId, {
           type: "incoming_notification",
-          notification: {
-            id: notification.id,
-            type: notification.type,
-            initiatorId: notification.initiatorId,
-            recipientId: notification.recipientId,
-            ...(notification.conversation && {
-              conversationId: {
-                id: notification.conversation.id,
-                name: notification.conversation.name,
-                avatarUrl: conversationAvatarUrl,
-                expiresAt: conversationAvatarExpiresAt,
-              },
-            }),
-            createdAt: notification.createdAt.toISOString(),
-          },
+          notification: await getNotificationForClient(notification.id),
         });
       }
     }
@@ -595,11 +515,13 @@ export async function removeMember(req: Request, res: Response) {
       memberId,
     });
 
-    // a member who leaves by themselves gets no notification
-    const isLeaving = memberId === userId;
-    let notificationForClient;
+    sendToUser(memberId, {
+      type: "removed_from_conversation",
+      conversationId,
+    });
 
-    if (!isLeaving) {
+    // a member who leaves by themselves gets no notification
+    if (memberId !== userId) {
       const notification = await prisma.notification.create({
         data: {
           initiatorId: userId,
@@ -607,53 +529,11 @@ export async function removeMember(req: Request, res: Response) {
           type: "RemovedFromGroup",
           conversationId,
         },
-        include: {
-          conversation: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-        },
-      });
-
-      let conversationAvatarUrl: string | undefined;
-      let conversationAvatarExpiresAt: string | undefined;
-
-      if (notification.conversation?.avatar) {
-        const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
-        conversationAvatarUrl = urls[0];
-        conversationAvatarExpiresAt = expiresAt;
-      }
-
-      notificationForClient = {
-        id: notification.id,
-        type: notification.type,
-
-        initiatorId: notification.initiatorId,
-        recipientId: notification.recipientId,
-
-        ...(notification.conversation && {
-          conversationId: {
-            id: notification.conversation.id,
-            name: notification.conversation.name,
-            avatarUrl: conversationAvatarUrl,
-            expiresAt: conversationAvatarExpiresAt,
-          },
-        }),
-
-        createdAt: notification.createdAt.toISOString(),
-      };
-
-      sendToUser(memberId, {
-        type: "removed_from_conversation",
-        conversationId,
       });
 
       sendToUser(memberId, {
         type: "incoming_notification",
-        notification: notificationForClient,
+        notification: await getNotificationForClient(notification.id),
       });
     }
 
@@ -732,13 +612,6 @@ export async function removeMember(req: Request, res: Response) {
         conversationId,
         memberId,
       });
-
-      if (notificationForClient) {
-        sendToUser(member.userId, {
-          type: "incoming_notification",
-          notification: notificationForClient,
-        });
-      }
     }
   } catch (err) {
     res.status(500).json({
@@ -914,21 +787,7 @@ export async function addMembers(req: Request, res: Response) {
 
       sendToUser(memberId, {
         type: "incoming_notification",
-        notification: {
-          id: notification.id,
-          type: notification.type,
-          initiatorId: notification.initiatorId,
-          recipientId: notification.recipientId,
-
-          conversationId: {
-            id: conversationId,
-            name: conversation.name,
-            avatarUrl,
-            expiresAt: avatarExpiresAt,
-          },
-
-          createdAt: notification.createdAt.toISOString(),
-        },
+        notification: await getNotificationForClient(notification.id),
       });
     }
 

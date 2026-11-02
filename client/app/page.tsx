@@ -5,7 +5,7 @@ import Loading from "@/components/Loading";
 import { authClient } from "@/lib/auth-client";
 import { getConversationInfo } from "@/lib/utils";
 import { useAppSelector } from "@/state/store";
-import { LogOut, MessageCircle, MessageSquarePlus, Search, UserPlus, Users, X } from "lucide-react";
+import { Bell, LogOut, MessageCircle, MessageSquarePlus, Search, UserPlus, Users, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +21,8 @@ export default function Home() {
   const usersById = useAppSelector((state) => state.users.byId);
   const loaded = useAppSelector((state) => state.conversations.loaded);
   const friendships = useAppSelector((state) => state.friendships.friendships);
+  const notifications = useAppSelector((state) => state.notifications.notifications);
+  const lastReadNotificationId = useAppSelector((state) => state.notifications.lastReadNotificationId);
   const [filter, setFilter] = useState<typeof filters[number]>("All");
   const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState("");
@@ -69,6 +71,7 @@ export default function Home() {
     .sort((a, b) => getLastId(b) - getLastId(a) || b.id - a.id);
 
   const unreadCount = conversations.filter((conversation) => conversation.unreadCount > 0).length;
+  const unreadNotifications = notifications.filter((notification) => lastReadNotificationId === null || notification.id > lastReadNotificationId).length;
   const receivedRequests = friendships.filter((friendship) => friendship.status === "Pending" && friendship.friendId === session?.user.id).length;
 
   if (sessionPending) return <Loading />;
@@ -95,11 +98,11 @@ export default function Home() {
         ) : (
           <div className="flex items-center justify-between">
             <Image src="/logo-light.svg" alt="E-Chat" width={120} height={40} preload={true} />
-            <div className="flex items-center gap-1">
-              <button onClick={() => setSearching(true)} aria-label="Search chats" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+            <div className="flex items-center gap-0.5">
+              <button onClick={() => setSearching(true)} aria-label="Search chats" className="flex size-9 items-center justify-center rounded-full hover:bg-white/15">
                 <Search className="size-5" />
               </button>
-              <Link href="/friendships" aria-label="Friends" className="relative flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+              <Link href="/friendships" aria-label="Friends" className="relative flex size-9 items-center justify-center rounded-full hover:bg-white/15">
                 <Users className="size-5" />
                 {receivedRequests > 0 && (
                   <span className="absolute top-0.5 right-0.5 min-w-4.5 h-4.5 px-1 rounded-full bg-brand-accent text-white text-[11px] md:text-[11px] xl:text-[11px] leading-none flex items-center justify-center">
@@ -107,13 +110,21 @@ export default function Home() {
                   </span>
                 )}
               </Link>
-              <Link href="/groups/new" aria-label="New group" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+              <Link href="/notifications" aria-label="Notifications" className="relative flex size-9 items-center justify-center rounded-full hover:bg-white/15">
+                <Bell className="size-5" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute top-0 right-0 min-w-4.5 h-4.5 px-1 rounded-full bg-brand-accent text-white text-[11px] md:text-[11px] xl:text-[11px] leading-none flex items-center justify-center">
+                    {unreadNotifications}
+                  </span>
+                )}
+              </Link>
+              <Link href="/groups/new" aria-label="New group" className="flex size-9 items-center justify-center rounded-full hover:bg-white/15">
                 <MessageSquarePlus className="size-5" />
               </Link>
-              <Link href="/add-friend" aria-label="Add friend" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+              <Link href="/add-friend" aria-label="Add friend" className="flex size-9 items-center justify-center rounded-full hover:bg-white/15">
                 <UserPlus className="size-5" />
               </Link>
-              <button onClick={handleSignOut} aria-label="Sign out" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+              <button onClick={handleSignOut} aria-label="Sign out" className="flex size-9 items-center justify-center rounded-full hover:bg-white/15">
                 <LogOut className="size-5" />
               </button>
             </div>
