@@ -5,7 +5,7 @@ import Loading from "@/components/Loading";
 import { authClient } from "@/lib/auth-client";
 import { getConversationInfo } from "@/lib/utils";
 import { useAppSelector } from "@/state/store";
-import { LogOut, MessageCircle, Search, UserPlus, Users, X } from "lucide-react";
+import { LogOut, MessageCircle, MessageSquarePlus, Search, UserPlus, Users, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -107,6 +107,9 @@ export default function Home() {
                   </span>
                 )}
               </Link>
+              <Link href="/groups/new" aria-label="New group" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
+                <MessageSquarePlus className="size-5" />
+              </Link>
               <Link href="/add-friend" aria-label="Add friend" className="flex size-10 items-center justify-center rounded-full hover:bg-white/15">
                 <UserPlus className="size-5" />
               </Link>
@@ -161,6 +164,13 @@ export default function Home() {
                 <p className="text-gray-500 text-sm mb-6">Add a friend to start your first conversation</p>
                 <Link href="/add-friend" className="rounded-full bg-brand-accent px-6 py-2.5 text-white font-medium hover:bg-brand">
                   Add friend
+                </Link>
+              </>
+            ) : filter === "Groups" && !search.trim() ? (
+              <>
+                <p className="text-gray-500 text-sm mb-6">You are not in any group yet</p>
+                <Link href="/groups/new" className="rounded-full bg-brand-accent px-6 py-2.5 text-white font-medium hover:bg-brand">
+                  New group
                 </Link>
               </>
             ) : (

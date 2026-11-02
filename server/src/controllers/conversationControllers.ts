@@ -590,74 +590,77 @@ export async function removeMember(req: Request, res: Response) {
       },
     });
 
-    const notification = await prisma.notification.create({
-      data: {
-        initiatorId: userId,
-        recipientId: memberId,
-        type: "RemovedFromGroup",
-        conversationId,
-      },
-      include: {
-        conversation: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
-      },
-    });
-
-
-    let conversationAvatarUrl: string | undefined;
-    let conversationAvatarExpiresAt: string | undefined;
-
-    if (notification.conversation?.avatar) {
-      const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
-      conversationAvatarUrl = urls[0];
-      conversationAvatarExpiresAt = expiresAt;
-    }
-
-
-    const notificationForClient = {
-      id: notification.id,
-      type: notification.type,
-
-      initiatorId: notification.initiatorId,
-      recipientId: notification.recipientId,
-
-      ...(notification.conversation && {
-        conversationId: {
-          id: notification.conversation.id,
-          name: notification.conversation.name,
-          avatarUrl: conversationAvatarUrl,
-          expiresAt: conversationAvatarExpiresAt,
-        },
-      }),
-
-      createdAt: notification.createdAt.toISOString(),
-    };
-
     res.json({
       conversationId,
       memberId,
     });
 
-    sendToUser(memberId, {
-      type: "removed_from_conversation",
-      conversationId,
-    });
+    // a member who leaves by themselves gets no notification
+    const isLeaving = memberId === userId;
+    let notificationForClient;
 
-    sendToUser(memberId, {
-      type: "incoming_notification",
-      notification: notificationForClient,
-    });
+    if (!isLeaving) {
+      const notification = await prisma.notification.create({
+        data: {
+          initiatorId: userId,
+          recipientId: memberId,
+          type: "RemovedFromGroup",
+          conversationId,
+        },
+        include: {
+          conversation: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      let conversationAvatarUrl: string | undefined;
+      let conversationAvatarExpiresAt: string | undefined;
+
+      if (notification.conversation?.avatar) {
+        const { urls, expiresAt } = await getPreviewUrls([notification.conversation.avatar]);
+        conversationAvatarUrl = urls[0];
+        conversationAvatarExpiresAt = expiresAt;
+      }
+
+      notificationForClient = {
+        id: notification.id,
+        type: notification.type,
+
+        initiatorId: notification.initiatorId,
+        recipientId: notification.recipientId,
+
+        ...(notification.conversation && {
+          conversationId: {
+            id: notification.conversation.id,
+            name: notification.conversation.name,
+            avatarUrl: conversationAvatarUrl,
+            expiresAt: conversationAvatarExpiresAt,
+          },
+        }),
+
+        createdAt: notification.createdAt.toISOString(),
+      };
+
+      sendToUser(memberId, {
+        type: "removed_from_conversation",
+        conversationId,
+      });
+
+      sendToUser(memberId, {
+        type: "incoming_notification",
+        notification: notificationForClient,
+      });
+    }
 
     const remainingMemberIds = conversation.members.map((member) => member.userId).filter((id) => id !== memberId);
 
     const friendships = await prisma.friendship.findMany({
       where: {
-        status: "Accepted",
         OR: [
           {
             userId: memberId,
@@ -685,8 +688,30 @@ export async function removeMember(req: Request, res: Response) {
         : friendship.userId
     );
 
+    // the membership is already deleted, so these are the other conversations they are both in
+    const sharedMembers = await prisma.conversationMember.findMany({
+      where: {
+        userId: {
+          in: remainingMemberIds,
+        },
+        conversation: {
+          members: {
+            some: {
+              userId: memberId,
+            },
+          },
+        },
+      },
+      select: {
+        userId: true,
+      },
+    });
+
+    const sharedIds = sharedMembers.map((member) => member.userId);
+
+    // they stay in each other's users while they are friends (also pending) or share another conversation
     for (const otherMemberId of remainingMemberIds) {
-      if (friendIds.includes(otherMemberId)) continue;
+      if (friendIds.includes(otherMemberId) || sharedIds.includes(otherMemberId)) continue;
 
       sendToUser(memberId, {
         type: "remove_user",
@@ -708,10 +733,12 @@ export async function removeMember(req: Request, res: Response) {
         memberId,
       });
 
-      sendToUser(member.userId, {
-        type: "incoming_notification",
-        notification: notificationForClient,
-      });
+      if (notificationForClient) {
+        sendToUser(member.userId, {
+          type: "incoming_notification",
+          notification: notificationForClient,
+        });
+      }
     }
   } catch (err) {
     res.status(500).json({

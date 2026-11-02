@@ -29,7 +29,7 @@ export async function markConversationAsRead(conversationId: number) {
   }
 }
 
-// direct conversations are named after the other person, groups have their own name
+// direct conversations are named after the other person, groups have their own name (or the names of the members)
 export function getConversationInfo(conversation: Conversation, myId: string | undefined, usersById: Record<string, User>) {
   if (conversation.type === "Direct") {
     const otherUserId = conversation.members.find((id) => id !== myId);
@@ -42,8 +42,13 @@ export function getConversationInfo(conversation: Conversation, myId: string | u
     };
   }
 
+  const memberNames = conversation.members
+    .filter((id) => id !== myId)
+    .map((id) => usersById[id]?.name.split(" ")[0] ?? "Member")
+    .join(", ");
+
   return {
-    name: conversation.name ?? "Group",
+    name: conversation.name || memberNames || "Group",
     avatarUrl: conversation.avatarUrl,
     otherUserId: undefined,
   };
