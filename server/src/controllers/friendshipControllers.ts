@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
-import { getPreviewUrls, sendToUser } from "../lib/utils.js";
+import { getNotificationForClient, getPreviewUrls, moveReadMarkers, sendToUser } from "../lib/utils.js";
 import { s3Client } from "../lib/s3Client.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
@@ -101,6 +101,17 @@ export async function unfriendUser(req: Request, res: Response) {
       },
     });
 
+    const conversationNotifications = await prisma.notification.findMany({
+      where: {
+        conversationId: conversation.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await moveReadMarkers(conversationNotifications.map((item) => item.id));
+
     await prisma.$transaction(async (tx) => {
       await tx.conversation.update({
         where: {
@@ -166,13 +177,7 @@ export async function unfriendUser(req: Request, res: Response) {
       });
     });
 
-    const notificationForClient = {
-      id: notification.id,
-      type: notification.type,
-      initiatorId: notification.initiatorId,
-      recipientId: notification.recipientId,
-      createdAt: notification.createdAt.toISOString(),
-    };
+    const notificationForClient = await getNotificationForClient(notification.id);
 
     res.json({
       friendId,
@@ -241,13 +246,7 @@ export async function rejectFriendRequest(req: Request, res: Response) {
       },
     });
 
-    const notificationForClient = {
-      id: notification.id,
-      type: notification.type,
-      initiatorId: notification.initiatorId,
-      recipientId: notification.recipientId,
-      createdAt: notification.createdAt.toISOString(),
-    };
+    const notificationForClient = await getNotificationForClient(notification.id);
 
     res.json({
       friendId,
@@ -305,6 +304,10 @@ export async function cancelFriendRequest(req: Request, res: Response) {
         id: true,
       },
     });
+
+    if (notification) {
+      await moveReadMarkers([notification.id]);
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.friendship.delete({
@@ -407,13 +410,6 @@ export async function acceptFriendRequest(req: Request, res: Response) {
               avatar: true,
             },
           },
-          conversation: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
         },
       });
 
@@ -429,8 +425,6 @@ export async function acceptFriendRequest(req: Request, res: Response) {
 
     let initiatorAvatarUrl: string | undefined;
     let initiatorAvatarExpiresAt: string | undefined;
-    let conversationAvatarUrl: string | undefined;
-    let conversationAvatarExpiresAt: string | undefined;
 
     if (notification.initiator.avatar) {
       const {urls, expiresAt} = await getPreviewUrls([
@@ -441,32 +435,7 @@ export async function acceptFriendRequest(req: Request, res: Response) {
       initiatorAvatarExpiresAt = expiresAt;
     }
 
-    if (notification.conversation?.avatar) {
-      const {urls, expiresAt} = await getPreviewUrls([
-        notification.conversation.avatar,
-      ]);
-
-      conversationAvatarUrl = urls[0];
-      conversationAvatarExpiresAt = expiresAt;
-    }
-
-    const notificationForClient = {
-      id: notification.id,
-      type: notification.type,
-
-      initiatorId: notification.initiatorId,
-      recipientId: notification.recipientId,
-      ...(notification.conversation && {
-        conversationId: {
-          id: notification.conversation.id,
-          name: notification.conversation.name,
-          avatarUrl: conversationAvatarUrl,
-          avatarExpiresAt: conversationAvatarExpiresAt,
-        },
-      }),
-
-      createdAt: notification.createdAt.toISOString(),
-    };
+    const notificationForClient = await getNotificationForClient(notification.id);
 
     const friend = await prisma.user.findUnique({
       where: {
@@ -642,14 +611,7 @@ export async function addFriendRequest(req: Request, res: Response) {
       avatarExpiresAt: initiatorAvatarExpiresAt,
     };
 
-    const notificationForClient = {
-      id: notification.id,
-      type: notification.type,
-
-      initiator: initiatorForClient,
-
-      createdAt: notification.createdAt.toISOString(),
-    };
+    const notificationForClient = await getNotificationForClient(notification.id);
 
     res.status(201).json({
       friendship: {

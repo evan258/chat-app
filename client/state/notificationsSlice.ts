@@ -8,10 +8,20 @@ export interface Notification {
   initiatorId: string,
   recipientId: string,
 
-  conversationId?: {
-    id: number,
+  // who did it, sent along because they may not be in usersById (for example someone who unfriended you)
+  initiator: {
+    id: string,
     name: string,
     avatarUrl?: string,
+    expiresAt?: string,
+  },
+
+  // the conversation it is about, for group and friend request accepted notifications
+  conversationId?: {
+    id: number,
+    name: string | null,
+    avatarUrl?: string,
+    expiresAt?: string,
   },
 
   createdAt: string,
