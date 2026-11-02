@@ -366,14 +366,20 @@ const ConversationView = ({ conversationId }: { conversationId: number }) => {
           <Link href="/" aria-label="Back to chats" className="flex size-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25">
             <ArrowLeft className="size-5" />
           </Link>
-          <div className="relative">
-            <UserAvatar name={name} src={avatarUrl} className="size-11 text-lg" />
-            {isActive && <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-brand" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-semibold">{name}</div>
-            <div className="truncate text-xs text-white/70">{subtitle}</div>
-          </div>
+          {/* a group opens its info page (name, photo, members), a direct chat opens the other user's profile */}
+          <Link
+            href={isGroup ? `/conversations/${conversationId}/info` : `/users/${otherUserId}`}
+            className="flex min-w-0 flex-1 items-center gap-3"
+          >
+            <div className="relative">
+              <UserAvatar name={name} src={avatarUrl} className="size-11 text-lg" />
+              {isActive && <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-brand" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base font-semibold">{name}</div>
+              <div className="truncate text-xs text-white/70">{subtitle}</div>
+            </div>
+          </Link>
         </div>
       </header>
 
